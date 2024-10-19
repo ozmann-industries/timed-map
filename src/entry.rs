@@ -10,7 +10,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use core::time::Duration;
 
-use crate::Clock;
+use crate::clock::Clock;
 
 #[derive(Clone, Copy)]
 pub enum EntryStatus {

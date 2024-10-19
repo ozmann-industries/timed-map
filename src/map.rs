@@ -2,6 +2,9 @@
 extern crate std;
 
 #[cfg(feature = "std")]
+use std::marker::PhantomData;
+
+#[cfg(feature = "std")]
 use std::time::Duration;
 
 #[cfg(feature = "std")]
@@ -16,21 +19,51 @@ use core::time::Duration;
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap;
 
+use crate::clock::Clock;
 use crate::entry::EntryStatus;
 use crate::entry::ExpirableEntry;
-use crate::Clock;
+
+#[cfg(feature = "std")]
+use crate::clock::StdClock;
 
 pub struct TimedMap<C, K, V>
 where
     C: Clock,
     K: Eq + Copy,
 {
+    #[cfg(feature = "std")]
+    clock: StdClock,
+    #[cfg(feature = "std")]
+    marker: PhantomData<C>,
+
+    #[cfg(not(feature = "std"))]
     clock: C,
+
     map: BTreeMap<K, ExpirableEntry<V>>,
     expiries: BTreeMap<u64, K>,
 }
 
+#[cfg(feature = "std")]
+impl<C: Clock, K: Copy + Eq + Ord, V> Default for TimedMap<C, K, V> {
+    fn default() -> Self {
+        Self {
+            clock: StdClock::default(),
+            map: BTreeMap::default(),
+            expiries: BTreeMap::default(),
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
+    #[cfg(feature = "std")]
+    /// Creates an empty map.
+    #[inline(always)]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[cfg(not(feature = "std"))]
     /// Creates an empty map.
     pub fn new(clock: C) -> Self {
         Self {
