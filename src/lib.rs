@@ -42,14 +42,48 @@
 
 #![no_std]
 
-#[cfg(feature = "std")]
-extern crate std;
-
 mod clock;
 mod entry;
 mod map;
 
-#[cfg(not(feature = "std"))]
-pub use clock::Clock;
+macro_rules! cfg_std_feature {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "std")]
+            $item
+        )*
+    };
+}
+
+macro_rules! cfg_not_std_feature {
+    ($($item:item)*) => {
+        $(
+            #[cfg(not(feature = "std"))]
+            $item
+        )*
+    };
+}
+
+cfg_std_feature! {
+    extern crate std;
+
+    use clock::StdClock;
+    use std::marker::PhantomData;
+    use std::time::Duration;
+    use std::collections::BTreeMap;
+    use clock::Clock;
+}
+
+cfg_not_std_feature! {
+    extern crate alloc;
+
+    use core::time::Duration;
+    use alloc::collections::BTreeMap;
+
+    pub use clock::Clock;
+}
+
+use entry::EntryStatus;
+use entry::ExpirableEntry;
 
 pub use map::TimedMap;

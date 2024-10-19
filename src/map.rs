@@ -1,30 +1,4 @@
-#[cfg(feature = "std")]
-extern crate std;
-
-#[cfg(feature = "std")]
-use std::marker::PhantomData;
-
-#[cfg(feature = "std")]
-use std::time::Duration;
-
-#[cfg(feature = "std")]
-use std::collections::BTreeMap;
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
-#[cfg(not(feature = "std"))]
-use core::time::Duration;
-
-#[cfg(not(feature = "std"))]
-use alloc::collections::BTreeMap;
-
-use crate::clock::Clock;
-use crate::entry::EntryStatus;
-use crate::entry::ExpirableEntry;
-
-#[cfg(feature = "std")]
-use crate::clock::StdClock;
+use super::*;
 
 /// Associates keys of type `K` with values of type `V`. Each entry may optionally expire after a
 /// specified duration.

@@ -1,6 +1,3 @@
-#[cfg(feature = "std")]
-extern crate std;
-
 /// Provides the current time in seconds.
 ///
 /// This is designed to work across both `std` and `no_std` environments.
