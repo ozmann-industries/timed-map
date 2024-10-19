@@ -26,6 +26,12 @@ use crate::entry::ExpirableEntry;
 #[cfg(feature = "std")]
 use crate::clock::StdClock;
 
+/// Associates keys of type `K` with values of type `V`. Each entry may optionally expire after a
+/// specified duration.
+///
+/// Mutable functions automatically clears expired entries when called.
+///
+/// If no expiration is set, the entry remains constant.
 pub struct TimedMap<C, K, V>
 where
     C: Clock,
@@ -56,15 +62,18 @@ impl<C: Clock, K: Copy + Eq + Ord, V> Default for TimedMap<C, K, V> {
 }
 
 impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
-    #[cfg(feature = "std")]
     /// Creates an empty map.
     #[inline(always)]
+    #[cfg(feature = "std")]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Creates an empty `TimedMap`.
+    ///
+    /// Uses the provided `clock` to handle expiration times.
+    #[inline(always)]
     #[cfg(not(feature = "std"))]
-    /// Creates an empty map.
     pub fn new(clock: C) -> Self {
         Self {
             clock,
@@ -81,11 +90,9 @@ impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
             .map(|v| v.value())
     }
 
-    /// Returns the associated value's [`Duration`] if present and not expired.
+    /// Returns the associated value's `Duration` if present and not expired.
     ///
-    /// This returns `None` in 2 cases:
-    ///  - When entry doesn't exists.
-    ///  - When entry is not expirable and is constant.
+    /// Returns `None` if the entry does not exist or is constant.
     pub fn get_remaining_duration(&self, k: &K) -> Option<Duration> {
         self.map
             .get(k)
@@ -98,7 +105,7 @@ impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
     ///
     /// If a value already exists for the given key, it will be updated and then
     /// the old one will be returned.
-    pub fn insert(&mut self, k: K, v: V, duration: Option<Duration>) -> Option<V> {
+    fn insert(&mut self, k: K, v: V, duration: Option<Duration>) -> Option<V> {
         self.drop_expired_entries();
 
         let entry = ExpirableEntry::new(&self.clock, v, duration);
@@ -110,9 +117,29 @@ impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
         self.map.insert(k, entry).map(|v| v.owned_value())
     }
 
+    /// Inserts a key-value pair with an expiration duration.
+    ///
+    /// If a value already exists for the given key, it will be updated and then
+    /// the old one will be returned.
+    #[inline(always)]
+    pub fn insert_expirable(&mut self, k: K, v: V, duration: Duration) -> Option<V> {
+        self.insert(k, v, Some(duration))
+    }
+
+    /// Inserts a key-value pair with that doesn't expire.
+    ///
+    /// If a value already exists for the given key, it will be updated and then
+    /// the old one will be returned.
+    #[inline(always)]
+    pub fn insert_constant(&mut self, k: K, v: V) -> Option<V> {
+        self.insert(k, v, None)
+    }
+
     /// Removes a key-value pair from the map and returns the associated value if present
     /// and not expired.
     pub fn remove(&mut self, k: &K) -> Option<V> {
+        self.drop_expired_entries();
+
         self.map
             .remove(k)
             .filter(|v| !v.is_expired(&self.clock))
