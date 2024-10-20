@@ -145,3 +145,234 @@ impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
         }
     }
 }
+
+#[cfg(test)]
+#[cfg(not(feature = "std"))]
+mod tests {
+    use super::*;
+
+    struct MockClock {
+        current_time: u64,
+    }
+
+    impl Clock for MockClock {
+        fn now_seconds(&self) -> u64 {
+            self.current_time
+        }
+    }
+
+    #[test]
+    fn nostd_insert_and_get_constant_entry() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+
+        map.insert_constant(1, "constant value");
+
+        assert_eq!(map.get(&1), Some(&"constant value"));
+        assert_eq!(map.get_remaining_duration(&1), None);
+    }
+
+    #[test]
+    fn nostd_insert_and_get_expirable_entry() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+        let duration = Duration::from_secs(60);
+
+        map.insert_expirable(1, "expirable value", duration);
+
+        assert_eq!(map.get(&1), Some(&"expirable value"));
+        assert_eq!(map.get_remaining_duration(&1), Some(duration));
+    }
+
+    #[test]
+    fn nostd_expired_entry() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+        let duration = Duration::from_secs(60);
+
+        // Insert entry that expires in 60 seconds
+        map.insert_expirable(1, "expirable value", duration);
+
+        // Simulate time passage beyond expiration
+        let clock = MockClock { current_time: 1070 };
+        map.clock = clock;
+
+        // The entry should be considered expired
+        assert_eq!(map.get(&1), None);
+        assert_eq!(map.get_remaining_duration(&1), None);
+    }
+
+    #[test]
+    fn nostd_remove_entry() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+
+        map.insert_constant(1, "constant value");
+
+        assert_eq!(map.remove(&1), Some("constant value"));
+        assert_eq!(map.get(&1), None);
+    }
+
+    #[test]
+    fn nostd_drop_expired_entries() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+
+        // Insert one constant and 2 expirable entries
+        map.insert_expirable(1, "expirable value1", Duration::from_secs(50));
+        map.insert_expirable(2, "expirable value2", Duration::from_secs(70));
+        map.insert_constant(3, "constant value");
+
+        // Simulate time passage beyond the expiration of the first entry
+        let clock = MockClock { current_time: 1055 };
+        map.clock = clock;
+
+        // Entry 1 should be removed and entry 2 and 3 should still exist
+        assert_eq!(map.get(&1), None);
+        assert_eq!(map.get(&2), Some(&"expirable value2"));
+        assert_eq!(map.get(&3), Some(&"constant value"));
+
+        // Simulate time passage again to expire second expirable entry
+        let clock = MockClock { current_time: 1071 };
+        map.clock = clock;
+
+        assert_eq!(map.get(&1), None);
+        assert_eq!(map.get(&2), None);
+        assert_eq!(map.get(&3), Some(&"constant value"));
+    }
+
+    #[test]
+    fn nostd_update_existing_entry() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+
+        map.insert_constant(1, "initial value");
+        assert_eq!(map.get(&1), Some(&"initial value"));
+
+        // Update the value of the existing key and make it expirable
+        map.insert_expirable(1, "updated value", Duration::from_secs(15));
+        assert_eq!(map.get(&1), Some(&"updated value"));
+
+        // Simulate time passage and expire the updated entry
+        let clock = MockClock { current_time: 1016 };
+        map.clock = clock;
+
+        assert_eq!(map.get(&1), None);
+    }
+}
+
+#[cfg(feature = "std")]
+#[cfg(test)]
+mod std_tests {
+    use super::*;
+
+    #[test]
+    fn std_expirable_and_constant_entries() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        map.insert_constant(1, "constant value");
+        map.insert_expirable(2, "expirable value", Duration::from_secs(2));
+
+        assert_eq!(map.get(&1), Some(&"constant value"));
+        assert_eq!(map.get(&2), Some(&"expirable value"));
+
+        assert_eq!(map.get_remaining_duration(&1), None);
+        assert!(map.get_remaining_duration(&2).is_some());
+    }
+
+    #[test]
+    fn std_expired_entry_removal() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+        let duration = Duration::from_secs(2);
+
+        map.insert_expirable(1, "expirable value", duration);
+
+        // Wait for expiration
+        std::thread::sleep(Duration::from_secs(3));
+
+        // Entry should now be expired
+        assert_eq!(map.get(&1), None);
+        assert_eq!(map.get_remaining_duration(&1), None);
+    }
+
+    #[test]
+    fn std_remove_entry() {
+        let mut map: TimedMap<StdClock, _, _> = TimedMap::new();
+
+        map.insert_constant(1, "constant value");
+        map.insert_expirable(2, "expirable value", Duration::from_secs(2));
+
+        assert_eq!(map.remove(&1), Some("constant value"));
+        assert_eq!(map.remove(&2), Some("expirable value"));
+
+        assert_eq!(map.get(&1), None);
+        assert_eq!(map.get(&2), None);
+    }
+
+    #[test]
+    fn std_drop_expired_entries() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        map.insert_expirable(1, "expirable value1", Duration::from_secs(2));
+        map.insert_expirable(2, "expirable value2", Duration::from_secs(4));
+
+        // Wait for expiration
+        std::thread::sleep(Duration::from_secs(3));
+
+        // Entry 1 should be removed and entry 2 should still exist
+        assert_eq!(map.get(&1), None);
+        assert_eq!(map.get(&2), Some(&"expirable value2"));
+    }
+
+    #[test]
+    fn std_update_existing_entry() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        map.insert_constant(1, "initial value");
+        assert_eq!(map.get(&1), Some(&"initial value"));
+
+        // Update the value of the existing key and make it expirable
+        map.insert_expirable(1, "updated value", Duration::from_secs(1));
+        assert_eq!(map.get(&1), Some(&"updated value"));
+
+        std::thread::sleep(Duration::from_secs(2));
+
+        // Should be expired now
+        assert_eq!(map.get(&1), None);
+    }
+
+    #[test]
+    fn std_insert_constant_and_expirable_combined() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        // Insert a constant entry and an expirable entry
+        map.insert_constant(1, "constant value");
+        map.insert_expirable(2, "expirable value", Duration::from_secs(2));
+
+        // Check both entries exist
+        assert_eq!(map.get(&1), Some(&"constant value"));
+        assert_eq!(map.get(&2), Some(&"expirable value"));
+
+        // Simulate passage of time beyond expiration
+        std::thread::sleep(Duration::from_secs(3));
+
+        // Constant entry should still exist, expirable should be expired
+        assert_eq!(map.get(&1), Some(&"constant value"));
+        assert_eq!(map.get(&2), None);
+    }
+
+    #[test]
+    fn std_expirable_entry_still_valid_before_expiration() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        // Insert an expirable entry with a duration of 60 seconds
+        map.insert_expirable(1, "expirable value", Duration::from_secs(3));
+
+        // Simulate a short sleep of 30 seconds (still valid)
+        std::thread::sleep(Duration::from_secs(2));
+
+        // The entry should still be valid
+        assert_eq!(map.get(&1), Some(&"expirable value"));
+        assert!(map.get_remaining_duration(&1).unwrap().as_secs() == 1);
+    }
+}
