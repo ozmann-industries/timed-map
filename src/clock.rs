@@ -1,26 +1,15 @@
 /// Provides the current time in seconds.
 ///
-/// This is designed to work across both `std` and `no_std` environments.
+/// This is designed to make `TimedMap` work across both `std` and `no_std` environments.
 ///
-/// When compiled with `std` feature, a default implementation of the `now_seconds`
-/// method is provided, which returns the current system time in seconds since `UNIX_EPOCH`
-/// using `SystemTime`.
+/// When compiled with `std` feature, this is handled internally with `StdClock`,
+/// which returns the current system time in seconds since `UNIX_EPOCH` using
+/// `SystemTime`.
 ///
 /// When `std` feature is disabled, user must implement the `now_seconds` method themselves
 /// typically using a custom time source (such as an embedded system's hardware timer).
 ///
-/// # `std` example:
-/// ```rs
-/// use std::time::SystemTime;
-///
-/// struct MyClock;
-/// impl Clock for MyClock {}
-///
-/// let clock = MyClock;
-/// let current_time = clock.now_seconds();
-/// ```
-///
-/// # `no_std` example:
+/// # Example usage:
 /// ```rs
 /// struct CustomClock;
 ///
@@ -45,7 +34,7 @@ pub trait Clock {
 /// to avoid requiring users to implement the `Clock` trait themselves.
 #[cfg(feature = "std")]
 #[derive(Default)]
-pub(crate) struct StdClock {}
+pub struct StdClock {}
 
 #[cfg(feature = "std")]
 impl Clock for StdClock {

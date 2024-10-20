@@ -10,19 +10,25 @@
 //!
 //! ### Examples:
 //!
-//! #### In `std` environment:
-//! ```no_run
-//! use timed_map::TimedMap;
+//! #### In `std` environments:
+//! ```rs
+//! use timed_map::{TimedMap, StdClock};
 //! use std::time::Duration;
 //!
-//! let mut map = TimedMap::new();
+//! let mut map: TimedMap<StdClock, _, _> = TimedMap::new();
 //!
-//! map.insert(1, "value", Some(Duration::from_secs(60)));
-//! assert_eq!(map.get(&1), Some(&"value"));
+//! map.insert_expirable(1, "expirable value", Duration::from_secs(60));
+//! assert_eq!(map.get(&1), Some(&"expirable value"));
+//! assert!(map.get_remaining_duration(&1).is_some());
+//!
+//! map.insert_constant(2, "constant value");
+//! assert_eq!(map.get(&2), Some(&"constant value"));
+//! assert!(map.get_remaining_duration(&2).is_none());
 //! ```
 //!
-//! #### In `no_std` environment:
-//! ```no_run
+//! #### In `no_std` environments:
+//! ```rs
+//! use core::time::Duration;
 //! use timed_map::{Clock, TimedMap};
 //!
 //! struct CustomClock;
@@ -36,8 +42,13 @@
 //! let clock = CustomClock;
 //! let mut map = TimedMap::new(clock);
 //!
-//! map.insert(1, "value", None);
-//! assert_eq!(map.get(&1), Some(&"value"));
+//! map.insert_expirable(1, "expirable value", Duration::from_secs(60));
+//! assert_eq!(map.get(&1), Some(&"expirable value"));
+//! assert!(map.get_remaining_duration(&1).is_some());
+//!
+//! map.insert_constant(2, "constant value");
+//! assert_eq!(map.get(&2), Some(&"constant value"));
+//! assert!(map.get_remaining_duration(&2).is_none());
 //! ```
 
 #![no_std]
@@ -67,11 +78,12 @@ macro_rules! cfg_not_std_feature {
 cfg_std_feature! {
     extern crate std;
 
-    use clock::StdClock;
     use std::marker::PhantomData;
     use std::time::Duration;
     use std::collections::BTreeMap;
     use clock::Clock;
+
+    pub use clock::StdClock;
 }
 
 cfg_not_std_feature! {
