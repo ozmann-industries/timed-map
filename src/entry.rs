@@ -80,3 +80,105 @@ impl<V> ExpirableEntry<V> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockClock {
+        current_time: u64,
+    }
+
+    impl Clock for MockClock {
+        fn now_seconds(&self) -> u64 {
+            self.current_time
+        }
+    }
+
+    #[test]
+    fn test_entry_status() {
+        let clock = MockClock { current_time: 1000 };
+
+        let entry_status = EntryStatus::from_duration(&clock, None);
+        assert!(matches!(entry_status, EntryStatus::Constant));
+
+        let duration = Duration::from_secs(60);
+        let entry_status = EntryStatus::from_duration(&clock, Some(duration));
+        assert!(matches!(entry_status, EntryStatus::ExpiresAtSeconds(1060)));
+    }
+
+    #[test]
+    fn test_constant_entry() {
+        let clock = MockClock { current_time: 1000 };
+        let entry = ExpirableEntry::new(&clock, "constant value", None);
+
+        assert_eq!(entry.value(), &"constant value");
+        assert!(!entry.is_expired(&clock));
+        assert!(matches!(entry.status(), EntryStatus::Constant));
+    }
+
+    #[test]
+    fn test_expirable_entry() {
+        let clock = MockClock { current_time: 1000 };
+        let duration = Duration::from_secs(60);
+        let entry = ExpirableEntry::new(&clock, "expirable value", Some(duration));
+
+        assert_eq!(entry.value(), &"expirable value");
+        assert!(!entry.is_expired(&clock));
+        assert!(matches!(
+            entry.status(),
+            EntryStatus::ExpiresAtSeconds(1060)
+        ));
+    }
+
+    #[test]
+    fn test_expirable_entry_is_expired() {
+        let clock = MockClock { current_time: 1000 };
+        let duration = Duration::from_secs(60);
+        let entry = ExpirableEntry::new(&clock, "expirable value", Some(duration));
+
+        // Entry should not be expired yet
+        assert!(!entry.is_expired(&clock));
+
+        // Simulate time passing
+        let clock = MockClock { current_time: 1070 };
+        assert!(entry.is_expired(&clock));
+    }
+
+    #[test]
+    fn test_remaining_duration_for_expires_at_seconds() {
+        let clock = MockClock { current_time: 1000 };
+        let duration = Duration::from_secs(60);
+        let entry = ExpirableEntry::new(&clock, "expirable value", Some(duration));
+
+        assert!(!entry.is_expired(&clock));
+        assert_eq!(
+            entry.remaining_duration(&clock),
+            Some(Duration::from_secs(60))
+        );
+
+        // Simulate time passing
+        let clock = MockClock { current_time: 1050 };
+        assert!(!entry.is_expired(&clock));
+        assert_eq!(
+            entry.remaining_duration(&clock),
+            Some(Duration::from_secs(10))
+        );
+
+        // Time passed beyond expiration
+        let clock = MockClock { current_time: 1070 };
+        assert!(entry.is_expired(&clock));
+        assert_eq!(
+            entry.remaining_duration(&clock),
+            Some(Duration::from_secs(0))
+        );
+    }
+
+    #[test]
+    fn test_remaining_duration_for_constant() {
+        let clock = MockClock { current_time: 1000 };
+        let entry = ExpirableEntry::new(&clock, "constant value", None);
+
+        assert_eq!(entry.remaining_duration(&clock), None);
+    }
+}
