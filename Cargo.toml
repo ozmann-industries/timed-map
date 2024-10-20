@@ -1,5 +1,6 @@
 [package]
 name = "timed-map"
+description = "Lightweight map implementation that supports expiring entries and fully compatible with both std and no_std environments."
 version = "0.1.0"
 edition = "2021"
 authors = ["Onur Ozkan <contact@onurozkan.dev>"]
