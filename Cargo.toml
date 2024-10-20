@@ -2,6 +2,17 @@
 name = "timed-map"
 version = "0.1.0"
 edition = "2021"
+authors = ["Onur Ozkan <contact@onurozkan.dev>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/ozmann-industries/timed-map"
+homepage = "https://github.com/ozmann-industries/timed-map"
+documentation = "https://docs.rs/timed-map"
+categories = ["data-structures", "no-std"]
+keywords = ["map", "no_std"]
+
+[lib]
+doctest = false
 
 [features]
 default = ["std"]
