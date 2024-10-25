@@ -1,19 +1,47 @@
 use super::*;
 
-pub enum GenericMap<K, V>
-where
-    K: Copy + Eq,
-{
+macro_rules! cfg_std_feature {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "std")]
+            $item
+        )*
+    };
+}
+
+macro_rules! cfg_not_std_feature {
+    ($($item:item)*) => {
+        $(
+            #[cfg(not(feature = "std"))]
+            $item
+        )*
+    };
+}
+
+cfg_not_std_feature! {
+    trait GenericKey: Copy + Eq + Ord {}
+    impl<T: Copy + Eq + Ord> GenericKey for T {}
+}
+
+cfg_std_feature! {
+    trait GenericKey: Copy + Eq + Ord + Hash {}
+    impl<T: Copy + Eq + Ord + Hash> GenericKey for T {}
+}
+
+enum GenericMap<K, V> {
     BTreeMap(BTreeMap<K, V>),
 }
 
-impl<K: Copy + Eq + Ord, V> Default for GenericMap<K, V> {
+impl<K, V> Default for GenericMap<K, V> {
     fn default() -> Self {
         Self::BTreeMap(BTreeMap::default())
     }
 }
 
-impl<K: Copy + Eq + Ord, V> GenericMap<K, V> {
+impl<K, V> GenericMap<K, V>
+where
+    K: GenericKey,
+{
     fn get(&self, k: &K) -> Option<&V> {
         match self {
             Self::BTreeMap(inner) => inner.get(k),
@@ -39,11 +67,7 @@ impl<K: Copy + Eq + Ord, V> GenericMap<K, V> {
 /// Mutable functions automatically clears expired entries when called.
 ///
 /// If no expiration is set, the entry remains constant.
-pub struct TimedMap<C, K, V>
-where
-    C: Clock,
-    K: Eq + Copy,
-{
+pub struct TimedMap<C, K, V> {
     #[cfg(feature = "std")]
     clock: StdClock,
     #[cfg(feature = "std")]
@@ -57,7 +81,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<C: Clock, K: Copy + Eq + Ord, V> Default for TimedMap<C, K, V> {
+impl<C, K, V> Default for TimedMap<C, K, V> {
     fn default() -> Self {
         Self {
             clock: StdClock::default(),
@@ -68,7 +92,12 @@ impl<C: Clock, K: Copy + Eq + Ord, V> Default for TimedMap<C, K, V> {
     }
 }
 
-impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
+#[allow(private_bounds)]
+impl<C, K, V> TimedMap<C, K, V>
+where
+    C: Clock,
+    K: GenericKey,
+{
     /// Creates an empty map.
     #[inline(always)]
     #[cfg(feature = "std")]

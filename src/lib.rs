@@ -81,6 +81,7 @@ cfg_std_feature! {
     use std::marker::PhantomData;
     use std::time::Duration;
     use std::collections::BTreeMap;
+    use std::hash::Hash;
     use clock::Clock;
 
     pub use clock::StdClock;
