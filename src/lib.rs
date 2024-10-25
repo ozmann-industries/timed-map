@@ -83,6 +83,7 @@ cfg_std_feature! {
     use std::collections::{BTreeMap, HashMap};
     use std::hash::Hash;
     use clock::Clock;
+    use std::time::Instant;
 
     pub use clock::StdClock;
     pub use map::MapKind;
