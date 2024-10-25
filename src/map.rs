@@ -19,12 +19,12 @@ macro_rules! cfg_not_std_feature {
 }
 
 cfg_not_std_feature! {
-    trait GenericKey: Copy + Eq + Ord {}
+    pub trait GenericKey: Copy + Eq + Ord {}
     impl<T: Copy + Eq + Ord> GenericKey for T {}
 }
 
 cfg_std_feature! {
-    trait GenericKey: Copy + Eq + Ord + Hash {}
+    pub trait GenericKey: Copy + Eq + Ord + Hash {}
     impl<T: Copy + Eq + Ord + Hash> GenericKey for T {}
 }
 
@@ -118,7 +118,6 @@ impl<C, K, V> Default for TimedMap<C, K, V> {
     }
 }
 
-#[allow(private_bounds)]
 impl<C, K, V> TimedMap<C, K, V>
 where
     C: Clock,
