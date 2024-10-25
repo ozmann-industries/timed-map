@@ -28,8 +28,13 @@ cfg_std_feature! {
     impl<T: Copy + Eq + Ord + Hash> GenericKey for T {}
 }
 
+#[allow(clippy::enum_variant_names)]
 enum GenericMap<K, V> {
     BTreeMap(BTreeMap<K, V>),
+    #[cfg(feature = "std")]
+    HashMap(HashMap<K, V>),
+    #[cfg(all(feature = "std", feature = "rustc-hash"))]
+    FxHashMap(FxHashMap<K, V>),
 }
 
 impl<K, V> Default for GenericMap<K, V> {
@@ -45,20 +50,41 @@ where
     fn get(&self, k: &K) -> Option<&V> {
         match self {
             Self::BTreeMap(inner) => inner.get(k),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.get(k),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.get(k),
         }
     }
 
     fn insert(&mut self, k: K, v: V) -> Option<V> {
         match self {
             Self::BTreeMap(inner) => inner.insert(k, v),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.insert(k, v),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.insert(k, v),
         }
     }
 
     fn remove(&mut self, k: &K) -> Option<V> {
         match self {
             Self::BTreeMap(inner) => inner.remove(k),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.remove(k),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.remove(k),
         }
     }
+}
+
+#[cfg(feature = "std")]
+#[allow(clippy::enum_variant_names)]
+pub enum MapKind {
+    BTreeMap,
+    HashMap,
+    #[cfg(feature = "rustc-hash")]
+    FxHashMap,
 }
 
 /// Associates keys of type `K` with values of type `V`. Each entry may optionally expire after a
@@ -103,6 +129,25 @@ where
     #[cfg(feature = "std")]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[cfg(feature = "std")]
+    pub fn new_with_map_kind(map_kind: MapKind) -> Self {
+        let map = match map_kind {
+            MapKind::BTreeMap => GenericMap::<K, ExpirableEntry<V>>::BTreeMap(BTreeMap::default()),
+            MapKind::HashMap => GenericMap::HashMap(HashMap::default()),
+            #[cfg(feature = "rustc-hash")]
+            MapKind::FxHashMap => GenericMap::FxHashMap(FxHashMap::default()),
+        };
+
+        Self {
+            clock: StdClock::default(),
+            map,
+            expiries: BTreeMap::default(),
+
+            #[cfg(feature = "std")]
+            marker: PhantomData,
+        }
     }
 
     /// Creates an empty `TimedMap`.

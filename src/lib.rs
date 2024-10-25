@@ -80,11 +80,12 @@ cfg_std_feature! {
 
     use std::marker::PhantomData;
     use std::time::Duration;
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, HashMap};
     use std::hash::Hash;
     use clock::Clock;
 
     pub use clock::StdClock;
+    pub use map::MapKind;
 }
 
 cfg_not_std_feature! {
@@ -98,5 +99,8 @@ cfg_not_std_feature! {
 
 use entry::EntryStatus;
 use entry::ExpirableEntry;
+
+#[cfg(all(feature = "std", feature = "rustc-hash"))]
+use rustc_hash::FxHashMap;
 
 pub use map::TimedMap;
