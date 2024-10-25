@@ -1,5 +1,38 @@
 use super::*;
 
+pub enum GenericMap<K, V>
+where
+    K: Copy + Eq,
+{
+    BTreeMap(BTreeMap<K, V>),
+}
+
+impl<K: Copy + Eq + Ord, V> Default for GenericMap<K, V> {
+    fn default() -> Self {
+        Self::BTreeMap(BTreeMap::default())
+    }
+}
+
+impl<K: Copy + Eq + Ord, V> GenericMap<K, V> {
+    fn get(&self, k: &K) -> Option<&V> {
+        match self {
+            Self::BTreeMap(inner) => inner.get(k),
+        }
+    }
+
+    fn insert(&mut self, k: K, v: V) -> Option<V> {
+        match self {
+            Self::BTreeMap(inner) => inner.insert(k, v),
+        }
+    }
+
+    fn remove(&mut self, k: &K) -> Option<V> {
+        match self {
+            Self::BTreeMap(inner) => inner.remove(k),
+        }
+    }
+}
+
 /// Associates keys of type `K` with values of type `V`. Each entry may optionally expire after a
 /// specified duration.
 ///
@@ -19,7 +52,7 @@ where
     #[cfg(not(feature = "std"))]
     clock: C,
 
-    map: BTreeMap<K, ExpirableEntry<V>>,
+    map: GenericMap<K, ExpirableEntry<V>>,
     expiries: BTreeMap<u64, K>,
 }
 
@@ -28,7 +61,7 @@ impl<C: Clock, K: Copy + Eq + Ord, V> Default for TimedMap<C, K, V> {
     fn default() -> Self {
         Self {
             clock: StdClock::default(),
-            map: BTreeMap::default(),
+            map: GenericMap::default(),
             expiries: BTreeMap::default(),
             marker: PhantomData,
         }
@@ -51,7 +84,7 @@ impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
     pub fn new(clock: C) -> Self {
         Self {
             clock,
-            map: BTreeMap::default(),
+            map: GenericMap::default(),
             expiries: BTreeMap::default(),
         }
     }
