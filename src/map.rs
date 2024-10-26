@@ -183,6 +183,7 @@ where
     /// Use this to control cleanup frequency and optimize performance. For example, if your workload
     /// involves about 100 inserts within couple seconds, setting `expiration_tick_cap` to 100 can improve
     /// the performance significantly.
+    #[inline(always)]
     pub fn expiration_tick_cap(mut self, expiration_tick_cap: u16) -> Self {
         self.expiration_tick_cap = expiration_tick_cap;
         self
@@ -201,6 +202,7 @@ where
     /// Returns the associated value if present, regardless of whether it is expired.
     ///
     /// If you only want non-expired entries, use `TimedMap::get` instead.
+    #[inline(always)]
     pub fn get_unchecked(&self, k: &K) -> Option<&V> {
         self.map.get(k).map(|v| v.value())
     }
@@ -312,6 +314,7 @@ where
     ///
     /// If you want to retrieve the entry after removal even if it is expired, consider using
     /// `TimedMap::remove_unchecked`.
+    #[inline(always)]
     pub fn remove(&mut self, k: &K) -> Option<V> {
         self.map
             .remove(k)
@@ -329,6 +332,7 @@ where
     /// regardless of expiration status.
     ///
     /// If you only want the entry when it is not expired, consider using `TimedMap::remove`.
+    #[inline(always)]
     pub fn remove_unchecked(&mut self, k: &K) -> Option<V> {
         self.map
             .remove(k)
@@ -346,6 +350,7 @@ where
     ///
     /// Call this function when using `*_unchecked` inserts, as these do not
     /// automatically clear expired entries.
+    #[inline(always)]
     pub fn drop_expired_entries(&mut self) {
         let now = self.clock.elapsed_seconds_since_creation();
         self.drop_expired_entries_inner(now);
