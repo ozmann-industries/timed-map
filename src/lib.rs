@@ -128,10 +128,10 @@ cfg_std_feature! {
     use std::hash::Hash;
     use clock::Clock;
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(feature = "wasm"))]
     use std::time::Instant;
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(feature = "wasm")]
     use web_time::Instant;
 
     pub use clock::StdClock;
