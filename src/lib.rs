@@ -83,7 +83,12 @@ cfg_std_feature! {
     use std::collections::{BTreeMap, HashMap};
     use std::hash::Hash;
     use clock::Clock;
+
+    #[cfg(not(target_arch = "wasm32"))]
     use std::time::Instant;
+
+    #[cfg(target_arch = "wasm32")]
+    use web_time::Instant;
 
     pub use clock::StdClock;
     pub use map::MapKind;

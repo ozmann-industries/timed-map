@@ -19,15 +19,20 @@ macro_rules! cfg_not_std_feature {
 }
 
 cfg_not_std_feature! {
+    /// Generic trait for `no_std` keys that is gated by the `std` feature
+    /// and handled at compile time.
     pub trait GenericKey: Copy + Eq + Ord {}
     impl<T: Copy + Eq + Ord> GenericKey for T {}
 }
 
 cfg_std_feature! {
+    /// Generic trait for `std` keys that is gated by the `std` feature
+    /// and handled at compile time.
     pub trait GenericKey: Copy + Eq + Ord + Hash {}
     impl<T: Copy + Eq + Ord + Hash> GenericKey for T {}
 }
 
+/// Wraps different map implementations and provides a single interface to access them.
 #[allow(clippy::enum_variant_names)]
 enum GenericMap<K, V> {
     BTreeMap(BTreeMap<K, V>),
@@ -81,6 +86,7 @@ where
     }
 }
 
+/// Specifies the inner map implementation for `TimedMap`.
 #[cfg(feature = "std")]
 #[allow(clippy::enum_variant_names)]
 pub enum MapKind {
@@ -138,6 +144,7 @@ where
         Self::default()
     }
 
+    /// Creates an empty map based on the chosen map implementation specified by `MapKind`.
     #[cfg(feature = "std")]
     pub fn new_with_map_kind(map_kind: MapKind) -> Self {
         let map = match map_kind {
@@ -148,8 +155,8 @@ where
         };
 
         Self {
-            clock: StdClock::new(),
             map,
+            clock: StdClock::new(),
             expiries: BTreeMap::default(),
 
             #[cfg(feature = "std")]

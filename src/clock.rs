@@ -1,15 +1,15 @@
 #[cfg(feature = "std")]
 use super::*;
 
-/// Provides the elapsed time since the creation of the implementer in seconds.
+/// Provides elapsed time since the creation of the implementer, in seconds.
 ///
-/// This is designed to make `TimedMap` work across both `std` and `no_std` environments.
+/// This is designed to enable `TimedMap` to work in both `std` and `no_std` environments.
 ///
-/// When compiled with `std` feature, this is handled internally with `StdClock`,
-/// which utilizes `std::time::Instant` behind the hood.
+/// When the `std` feature is enabled, the implementer is expected to use `StdClock`,
+/// which relies on `std::time::Instant` for timekeeping.
 ///
-/// When `std` feature is disabled, user must implement the `elapsed_seconds_since_creation` method themselves
-/// typically using a custom time source (such as an embedded system's hardware timer).
+/// In `no_std` environments, users should implement the `elapsed_seconds_since_creation` manually,
+/// typically using a custom time source such as embedded system's hardware timer.
 ///
 /// # Example usage:
 /// ```rs
@@ -17,7 +17,8 @@ use super::*;
 ///
 /// impl Clock for CustomClock {
 ///     fn elapsed_seconds_since_creation(&self) -> u64 {
-///         // Hardware specific implementation to measure time.
+///     // Hardware-specific implementation to measure the elapsed time.
+///         0 // placeholder
 ///     }
 /// }
 ///
@@ -25,7 +26,7 @@ use super::*;
 /// let current_time = clock.elapsed_seconds_since_creation();
 /// ```
 pub trait Clock {
-    /// Returns the elapsed time since the creation of the implementer in seconds.
+    /// Returns the elapsed time since the creation of the implementer, in seconds.
     fn elapsed_seconds_since_creation(&self) -> u64;
 }
 

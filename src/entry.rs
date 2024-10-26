@@ -11,9 +11,9 @@ pub enum EntryStatus {
 /// - `Constant`: Entry is not expirable and remains accessible until removed.
 /// - `ExpiresAtSeconds`: Entry will expire once reached to the given time.
 impl EntryStatus {
-    /// Creates an instance based on `expires_at`.
+    /// Creates expirable or constant entry based on `expires_at`.
     ///
-    /// If `expires_at` is `Some`, the entry will be marked as expirable; otherwise,
+    /// If `expires_at` is `Some`, entry will be created as expirable; otherwise,
     /// it will be constant.
     #[inline(always)]
     fn new(expires_at: Option<u64>) -> Self {
