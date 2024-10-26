@@ -15,6 +15,7 @@ impl EntryStatus {
     ///
     /// If `expires_at` is `Some`, the entry will be marked as expirable; otherwise,
     /// it will be constant.
+    #[inline(always)]
     fn new(expires_at: Option<u64>) -> Self {
         match expires_at {
             Some(t) => Self::ExpiresAtSeconds(t),
@@ -34,6 +35,7 @@ impl<V> ExpirableEntry<V> {
     /// Creates a new instance.
     ///
     /// If `expires_at` is `None`, entry will be constant/unexpirable.
+    #[inline(always)]
     pub(crate) fn new(v: V, expires_at: Option<u64>) -> Self {
         Self {
             value: v,
@@ -58,6 +60,7 @@ impl<V> ExpirableEntry<V> {
     }
 
     /// Checks if the entry has expired based on the current time.
+    #[inline(always)]
     pub(crate) fn is_expired(&self, now_seconds: u64) -> bool {
         match self.status {
             EntryStatus::Constant => false,
@@ -67,6 +70,7 @@ impl<V> ExpirableEntry<V> {
 
     /// Returns the remaining `Duration` before entry expires if it's expirable,
     /// or `None` if it's constant.
+    #[inline(always)]
     pub(crate) fn remaining_duration(&self, now_seconds: u64) -> Option<Duration> {
         match self.status {
             EntryStatus::Constant => None,
