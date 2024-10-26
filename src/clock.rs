@@ -1,31 +1,33 @@
-/// Provides the current time in seconds.
+#[cfg(feature = "std")]
+use super::*;
+
+/// Provides elapsed time since the creation of the implementer, in seconds.
 ///
-/// This is designed to make `TimedMap` work across both `std` and `no_std` environments.
+/// This is designed to enable `TimedMap` to work in both `std` and `no_std` environments.
 ///
-/// When compiled with `std` feature, this is handled internally with `StdClock`,
-/// which returns the current system time in seconds since `UNIX_EPOCH` using
-/// `SystemTime`.
+/// When the `std` feature is enabled, the implementer is expected to use `StdClock`,
+/// which relies on `std::time::Instant` for timekeeping.
 ///
-/// When `std` feature is disabled, user must implement the `now_seconds` method themselves
-/// typically using a custom time source (such as an embedded system's hardware timer).
+/// In `no_std` environments, users should implement the `elapsed_seconds_since_creation` manually,
+/// typically using a custom time source such as embedded system's hardware timer.
 ///
 /// # Example usage:
 /// ```rs
 /// struct CustomClock;
 ///
 /// impl Clock for CustomClock {
-///     fn now_seconds(&self) -> u64 {
-///         // Custom implementation to retrieve the current time.
-///         0 // return a fixed dummy value for simplicity
+///     fn elapsed_seconds_since_creation(&self) -> u64 {
+///     // Hardware-specific implementation to measure the elapsed time.
+///         0 // placeholder
 ///     }
 /// }
 ///
 /// let clock = CustomClock;
-/// let current_time = clock.now_seconds();
+/// let current_time = clock.elapsed_seconds_since_creation();
 /// ```
 pub trait Clock {
-    /// Returns the current time in seconds.
-    fn now_seconds(&self) -> u64;
+    /// Returns the elapsed time since the creation of the implementer, in seconds.
+    fn elapsed_seconds_since_creation(&self) -> u64;
 }
 
 /// A default `Clock` implementation when `std` is enabled.
@@ -33,17 +35,22 @@ pub trait Clock {
 /// When `std` is enabled, this is automatically utilized in `TimedMap`
 /// to avoid requiring users to implement the `Clock` trait themselves.
 #[cfg(feature = "std")]
-#[derive(Default)]
-pub struct StdClock {}
+pub struct StdClock {
+    creation: Instant,
+}
+
+#[cfg(feature = "std")]
+impl StdClock {
+    pub(crate) fn new() -> Self {
+        Self {
+            creation: Instant::now(),
+        }
+    }
+}
 
 #[cfg(feature = "std")]
 impl Clock for StdClock {
-    fn now_seconds(&self) -> u64 {
-        use std::time::{SystemTime, UNIX_EPOCH};
-
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs()
+    fn elapsed_seconds_since_creation(&self) -> u64 {
+        self.creation.elapsed().as_secs()
     }
 }

@@ -17,4 +17,11 @@ doctest = false
 
 [features]
 default = ["std"]
+rustc-hash = ["dep:rustc-hash"]
 std = []
+
+[dependencies]
+rustc-hash = { version = "2.0", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = { version = "1.1", default-features = false }

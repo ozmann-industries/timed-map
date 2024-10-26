@@ -1,16 +1,108 @@
 use super::*;
 
+macro_rules! cfg_std_feature {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "std")]
+            $item
+        )*
+    };
+}
+
+macro_rules! cfg_not_std_feature {
+    ($($item:item)*) => {
+        $(
+            #[cfg(not(feature = "std"))]
+            $item
+        )*
+    };
+}
+
+cfg_not_std_feature! {
+    /// Generic trait for `no_std` keys that is gated by the `std` feature
+    /// and handled at compile time.
+    pub trait GenericKey: Copy + Eq + Ord {}
+    impl<T: Copy + Eq + Ord> GenericKey for T {}
+}
+
+cfg_std_feature! {
+    /// Generic trait for `std` keys that is gated by the `std` feature
+    /// and handled at compile time.
+    pub trait GenericKey: Copy + Eq + Ord + Hash {}
+    impl<T: Copy + Eq + Ord + Hash> GenericKey for T {}
+}
+
+/// Wraps different map implementations and provides a single interface to access them.
+#[allow(clippy::enum_variant_names)]
+enum GenericMap<K, V> {
+    BTreeMap(BTreeMap<K, V>),
+    #[cfg(feature = "std")]
+    HashMap(HashMap<K, V>),
+    #[cfg(all(feature = "std", feature = "rustc-hash"))]
+    FxHashMap(FxHashMap<K, V>),
+}
+
+impl<K, V> Default for GenericMap<K, V> {
+    fn default() -> Self {
+        Self::BTreeMap(BTreeMap::default())
+    }
+}
+
+impl<K, V> GenericMap<K, V>
+where
+    K: GenericKey,
+{
+    #[inline(always)]
+    fn get(&self, k: &K) -> Option<&V> {
+        match self {
+            Self::BTreeMap(inner) => inner.get(k),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.get(k),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.get(k),
+        }
+    }
+
+    #[inline(always)]
+    fn insert(&mut self, k: K, v: V) -> Option<V> {
+        match self {
+            Self::BTreeMap(inner) => inner.insert(k, v),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.insert(k, v),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.insert(k, v),
+        }
+    }
+
+    #[inline(always)]
+    fn remove(&mut self, k: &K) -> Option<V> {
+        match self {
+            Self::BTreeMap(inner) => inner.remove(k),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.remove(k),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.remove(k),
+        }
+    }
+}
+
+/// Specifies the inner map implementation for `TimedMap`.
+#[cfg(feature = "std")]
+#[allow(clippy::enum_variant_names)]
+pub enum MapKind {
+    BTreeMap,
+    HashMap,
+    #[cfg(feature = "rustc-hash")]
+    FxHashMap,
+}
+
 /// Associates keys of type `K` with values of type `V`. Each entry may optionally expire after a
 /// specified duration.
 ///
 /// Mutable functions automatically clears expired entries when called.
 ///
 /// If no expiration is set, the entry remains constant.
-pub struct TimedMap<C, K, V>
-where
-    C: Clock,
-    K: Eq + Copy,
-{
+pub struct TimedMap<C, K, V> {
     #[cfg(feature = "std")]
     clock: StdClock,
     #[cfg(feature = "std")]
@@ -19,59 +111,124 @@ where
     #[cfg(not(feature = "std"))]
     clock: C,
 
-    map: BTreeMap<K, ExpirableEntry<V>>,
+    map: GenericMap<K, ExpirableEntry<V>>,
     expiries: BTreeMap<u64, K>,
+
+    expiration_tick: u16,
+    expiration_tick_cap: u16,
 }
 
 #[cfg(feature = "std")]
-impl<C: Clock, K: Copy + Eq + Ord, V> Default for TimedMap<C, K, V> {
+impl<C, K, V> Default for TimedMap<C, K, V> {
     fn default() -> Self {
         Self {
-            clock: StdClock::default(),
-            map: BTreeMap::default(),
+            clock: StdClock::new(),
+            map: GenericMap::default(),
             expiries: BTreeMap::default(),
             marker: PhantomData,
+
+            expiration_tick: 0,
+            expiration_tick_cap: 1,
         }
     }
 }
 
-impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
+impl<C, K, V> TimedMap<C, K, V>
+where
+    C: Clock,
+    K: GenericKey,
+{
     /// Creates an empty map.
-    #[inline(always)]
     #[cfg(feature = "std")]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Creates an empty map based on the chosen map implementation specified by `MapKind`.
+    #[cfg(feature = "std")]
+    pub fn new_with_map_kind(map_kind: MapKind) -> Self {
+        let map = match map_kind {
+            MapKind::BTreeMap => GenericMap::<K, ExpirableEntry<V>>::BTreeMap(BTreeMap::default()),
+            MapKind::HashMap => GenericMap::HashMap(HashMap::default()),
+            #[cfg(feature = "rustc-hash")]
+            MapKind::FxHashMap => GenericMap::FxHashMap(FxHashMap::default()),
+        };
+
+        Self {
+            map,
+            clock: StdClock::new(),
+            expiries: BTreeMap::default(),
+
+            #[cfg(feature = "std")]
+            marker: PhantomData,
+            expiration_tick: 0,
+            expiration_tick_cap: 1,
+        }
+    }
+
     /// Creates an empty `TimedMap`.
     ///
     /// Uses the provided `clock` to handle expiration times.
-    #[inline(always)]
     #[cfg(not(feature = "std"))]
     pub fn new(clock: C) -> Self {
         Self {
             clock,
-            map: BTreeMap::default(),
+            map: GenericMap::default(),
             expiries: BTreeMap::default(),
+            expiration_tick: 0,
+            expiration_tick_cap: 1,
         }
     }
 
+    /// Configures `expiration_tick_cap`, which sets how often `TimedMap::drop_expired_entries`
+    /// is automatically called. The default value is 1.
+    ///
+    /// On each insert (excluding `unchecked` ones), an internal counter `expiration_tick` is incremented.
+    /// When `expiration_tick` meets or exceeds `expiration_tick_cap`, `TimedMap::drop_expired_entries` is
+    /// triggered to remove expired entries.
+    ///
+    /// Use this to control cleanup frequency and optimize performance. For example, if your workload
+    /// involves about 100 inserts within couple seconds, setting `expiration_tick_cap` to 100 can improve
+    /// the performance significantly.
+    #[inline(always)]
+    pub fn expiration_tick_cap(mut self, expiration_tick_cap: u16) -> Self {
+        self.expiration_tick_cap = expiration_tick_cap;
+        self
+    }
+
     /// Returns the associated value if present and not expired.
+    ///
+    /// To retrieve the value without checking expiration, use `TimedMap::get_unchecked`.
     pub fn get(&self, k: &K) -> Option<&V> {
         self.map
             .get(k)
-            .filter(|v| !v.is_expired(&self.clock))
+            .filter(|v| !v.is_expired(self.clock.elapsed_seconds_since_creation()))
             .map(|v| v.value())
+    }
+
+    /// Returns the associated value if present, regardless of whether it is expired.
+    ///
+    /// If you only want non-expired entries, use `TimedMap::get` instead.
+    #[inline(always)]
+    pub fn get_unchecked(&self, k: &K) -> Option<&V> {
+        self.map.get(k).map(|v| v.value())
     }
 
     /// Returns the associated value's `Duration` if present and not expired.
     ///
     /// Returns `None` if the entry does not exist or is constant.
     pub fn get_remaining_duration(&self, k: &K) -> Option<Duration> {
-        self.map
-            .get(k)
-            .filter(|v| !v.is_expired(&self.clock))
-            .map(|v| v.remaining_duration(&self.clock))?
+        match self.map.get(k) {
+            Some(v) => {
+                let now = self.clock.elapsed_seconds_since_creation();
+                if v.is_expired(now) {
+                    return None;
+                }
+
+                v.remaining_duration(now)
+            }
+            None => None,
+        }
     }
 
     /// Inserts a key-value pair with an expiration duration. If duration is `None`,
@@ -79,69 +236,142 @@ impl<C: Clock, K: Copy + Eq + Ord, V> TimedMap<C, K, V> {
     ///
     /// If a value already exists for the given key, it will be updated and then
     /// the old one will be returned.
-    fn insert(&mut self, k: K, v: V, duration: Option<Duration>) -> Option<V> {
-        self.drop_expired_entries();
-
-        let entry = ExpirableEntry::new(&self.clock, v, duration);
-
-        if let EntryStatus::ExpiresAtSeconds(expires_at_seconds) = entry.status() {
-            self.expiries.insert(*expires_at_seconds, k);
-        }
-
+    #[inline(always)]
+    fn insert(&mut self, k: K, v: V, expires_at: Option<u64>) -> Option<V> {
+        let entry = ExpirableEntry::new(v, expires_at);
         self.map.insert(k, entry).map(|v| v.owned_value())
     }
 
-    /// Inserts a key-value pair with an expiration duration.
+    /// Inserts a key-value pair with an expiration duration, and then drops the
+    /// expired entries.
     ///
     /// If a value already exists for the given key, it will be updated and then
     /// the old one will be returned.
-    #[inline(always)]
+    ///
+    /// If you don't want to the check expired entries, consider using `TimedMap::insert_expirable_unchecked`
+    /// instead.
     pub fn insert_expirable(&mut self, k: K, v: V, duration: Duration) -> Option<V> {
-        self.insert(k, v, Some(duration))
+        self.expiration_tick += 1;
+
+        let now = self.clock.elapsed_seconds_since_creation();
+        let expires_at = now + duration.as_secs();
+
+        let res = self.insert(k, v, Some(expires_at));
+
+        self.expiries.insert(expires_at, k);
+
+        if self.expiration_tick >= self.expiration_tick_cap {
+            self.drop_expired_entries_inner(now);
+            self.expiration_tick = 0;
+        }
+
+        res
     }
 
-    /// Inserts a key-value pair with that doesn't expire.
+    /// Inserts a key-value pair with an expiration duration, without checking the expired
+    /// entries.
     ///
     /// If a value already exists for the given key, it will be updated and then
     /// the old one will be returned.
-    #[inline(always)]
+    ///
+    /// If you want to check the expired entries, consider using `TimedMap::insert_expirable`
+    /// instead.
+    pub fn insert_expirable_unchecked(&mut self, k: K, v: V, duration: Duration) -> Option<V> {
+        let now = self.clock.elapsed_seconds_since_creation();
+        let expires_at = now + duration.as_secs();
+        self.insert(k, v, Some(expires_at))
+    }
+
+    /// Inserts a key-value pair with that doesn't expire, and then drops the
+    /// expired entries.
+    ///
+    /// If a value already exists for the given key, it will be updated and then
+    /// the old one will be returned.
+    ///
+    /// If you don't want to check the expired entries, consider using `TimedMap::insert_constant_unchecked`
+    /// instead.
     pub fn insert_constant(&mut self, k: K, v: V) -> Option<V> {
+        self.expiration_tick += 1;
+        let res = self.insert(k, v, None);
+
+        let now = self.clock.elapsed_seconds_since_creation();
+        if self.expiration_tick >= self.expiration_tick_cap {
+            self.drop_expired_entries_inner(now);
+            self.expiration_tick = 0;
+        }
+
+        res
+    }
+
+    /// Inserts a key-value pair with that doesn't expire without checking the expired
+    /// entries.
+    ///
+    /// If a value already exists for the given key, it will be updated and then
+    /// the old one will be returned.
+    ///
+    /// If you want to check the expired entries, consider using `TimedMap::insert_constant`
+    /// instead.
+    pub fn insert_constant_unchecked(&mut self, k: K, v: V) -> Option<V> {
+        self.expiration_tick += 1;
         self.insert(k, v, None)
     }
 
     /// Removes a key-value pair from the map and returns the associated value if present
     /// and not expired.
+    ///
+    /// If you want to retrieve the entry after removal even if it is expired, consider using
+    /// `TimedMap::remove_unchecked`.
+    #[inline(always)]
     pub fn remove(&mut self, k: &K) -> Option<V> {
-        self.drop_expired_entries();
-
         self.map
             .remove(k)
-            .filter(|v| !v.is_expired(&self.clock))
-            .map(|v| {
+            .filter(|v| {
                 if let EntryStatus::ExpiresAtSeconds(expires_at_seconds) = v.status() {
                     self.expiries.remove(expires_at_seconds);
                 }
 
-                v.owned_value()
+                !v.is_expired(self.clock.elapsed_seconds_since_creation())
             })
+            .map(|v| v.owned_value())
+    }
+
+    /// Removes a key-value pair from the map and returns the associated value if present,
+    /// regardless of expiration status.
+    ///
+    /// If you only want the entry when it is not expired, consider using `TimedMap::remove`.
+    #[inline(always)]
+    pub fn remove_unchecked(&mut self, k: &K) -> Option<V> {
+        self.map
+            .remove(k)
+            .filter(|v| {
+                if let EntryStatus::ExpiresAtSeconds(expires_at_seconds) = v.status() {
+                    self.expiries.remove(expires_at_seconds);
+                }
+
+                true
+            })
+            .map(|v| v.owned_value())
     }
 
     /// Clears expired entries from the map.
-    fn drop_expired_entries(&mut self) {
-        let now_seconds = self.clock.now_seconds();
+    ///
+    /// Call this function when using `*_unchecked` inserts, as these do not
+    /// automatically clear expired entries.
+    #[inline(always)]
+    pub fn drop_expired_entries(&mut self) {
+        let now = self.clock.elapsed_seconds_since_creation();
+        self.drop_expired_entries_inner(now);
+    }
 
+    fn drop_expired_entries_inner(&mut self, now_seconds: u64) {
         // Iterates through `expiries` in order and drops expired ones.
-        //
-        // We break the iteration on the first non-expired entry as `expiries`
-        // are in sorted order, this makes the process much cheaper than iterating
-        // over the entire map.
-        while let Some((exp, key)) = self.expiries.pop_first() {
-            if exp > now_seconds {
-                self.expiries.insert(exp, key);
+        while let Some((exp, key)) = self.expiries.iter().next() {
+            // It's safe to do early-break here as keys are sorted by expiration.
+            if *exp > now_seconds {
                 break;
             }
 
-            self.map.remove(&key);
+            self.map.remove(key);
         }
     }
 }
@@ -156,7 +386,7 @@ mod tests {
     }
 
     impl Clock for MockClock {
-        fn now_seconds(&self) -> u64 {
+        fn elapsed_seconds_since_creation(&self) -> u64 {
             self.current_time
         }
     }

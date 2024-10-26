@@ -34,8 +34,9 @@
 //! struct CustomClock;
 //!
 //! impl Clock for CustomClock {
-//!     fn now_seconds(&self) -> u64 {
-//!         // Custom time implementation depending on the hardware.
+//!     fn elapsed_seconds_since_creation(&self) -> u64 {
+//!         // Hardware-specific implementation to measure the elapsed time.
+//!         0 // placeholder
 //!     }
 //! }
 //!
@@ -80,10 +81,18 @@ cfg_std_feature! {
 
     use std::marker::PhantomData;
     use std::time::Duration;
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, HashMap};
+    use std::hash::Hash;
     use clock::Clock;
 
+    #[cfg(not(target_arch = "wasm32"))]
+    use std::time::Instant;
+
+    #[cfg(target_arch = "wasm32")]
+    use web_time::Instant;
+
     pub use clock::StdClock;
+    pub use map::MapKind;
 }
 
 cfg_not_std_feature! {
@@ -97,5 +106,8 @@ cfg_not_std_feature! {
 
 use entry::EntryStatus;
 use entry::ExpirableEntry;
+
+#[cfg(all(feature = "std", feature = "rustc-hash"))]
+use rustc_hash::FxHashMap;
 
 pub use map::TimedMap;
