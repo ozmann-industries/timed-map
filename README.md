@@ -36,8 +36,9 @@ use timed_map::{Clock, TimedMap};
 struct CustomClock;
 
 impl Clock for CustomClock {
-    fn now_seconds(&self) -> u64 {
-        // Custom time implementation depending on the hardware.
+    fn elapsed_seconds_since_creation(&self) -> u64 {
+    // Hardware-specific implementation to measure the elapsed time.
+        0 // placeholder
     }
 }
 
