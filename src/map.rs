@@ -21,15 +21,15 @@ macro_rules! cfg_not_std_feature {
 cfg_not_std_feature! {
     /// Generic trait for `no_std` keys that is gated by the `std` feature
     /// and handled at compile time.
-    pub trait GenericKey: Copy + Eq + Ord {}
-    impl<T: Copy + Eq + Ord> GenericKey for T {}
+    pub trait GenericKey: Clone + Eq + Ord {}
+    impl<T: Clone + Eq + Ord> GenericKey for T {}
 }
 
 cfg_std_feature! {
     /// Generic trait for `std` keys that is gated by the `std` feature
     /// and handled at compile time.
-    pub trait GenericKey: Copy + Eq + Ord + Hash {}
-    impl<T: Copy + Eq + Ord + Hash> GenericKey for T {}
+    pub trait GenericKey: Clone + Eq + Ord + Hash {}
+    impl<T: Clone + Eq + Ord + Hash> GenericKey for T {}
 }
 
 /// Wraps different map implementations and provides a single interface to access them.
@@ -256,7 +256,7 @@ where
         let now = self.clock.elapsed_seconds_since_creation();
         let expires_at = now + duration.as_secs();
 
-        let res = self.insert(k, v, Some(expires_at));
+        let res = self.insert(k.clone(), v, Some(expires_at));
 
         self.expiries.insert(expires_at, k);
 
