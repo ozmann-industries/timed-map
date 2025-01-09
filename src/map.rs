@@ -87,6 +87,17 @@ where
     }
 
     #[inline(always)]
+    fn keys(&self) -> Vec<K> {
+        match self {
+            Self::BTreeMap(inner) => inner.keys().cloned().collect(),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.keys().cloned().collect(),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.keys().cloned().collect(),
+        }
+    }
+
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         match self {
             Self::BTreeMap(inner) => inner.is_empty(),
@@ -300,6 +311,12 @@ where
     #[inline(always)]
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+
+    /// Returns keys of the map
+    #[inline(always)]
+    pub fn keys(&self) -> Vec<K> {
+        self.map.keys()
     }
 
     /// Returns true if the map contains no elements.

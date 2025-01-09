@@ -126,6 +126,7 @@ cfg_std_feature! {
     use std::time::Duration;
     use std::collections::{BTreeMap, HashMap};
     use std::hash::Hash;
+    use std::vec::Vec;
     use clock::Clock;
 
     #[cfg(not(feature = "wasm"))]
@@ -142,6 +143,7 @@ cfg_not_std_feature! {
     extern crate alloc;
 
     use core::time::Duration;
+    use alloc::vec::Vec;
     use alloc::collections::BTreeMap;
 
     pub use clock::Clock;
