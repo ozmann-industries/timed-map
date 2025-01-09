@@ -75,6 +75,17 @@ where
     }
 
     #[inline(always)]
+    fn clear(&mut self) {
+        match self {
+            Self::BTreeMap(inner) => inner.clear(),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.clear(),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.clear(),
+        }
+    }
+
+    #[inline(always)]
     fn remove(&mut self, k: &K) -> Option<V> {
         match self {
             Self::BTreeMap(inner) => inner.remove(k),
@@ -351,6 +362,12 @@ where
                 true
             })
             .map(|v| v.owned_value())
+    }
+
+    /// Clears the map, removing all elements.
+    #[inline(always)]
+    pub fn clear(&mut self) {
+        self.map.clear()
     }
 
     /// Clears expired entries from the map.
