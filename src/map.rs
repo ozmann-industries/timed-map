@@ -65,6 +65,17 @@ where
     }
 
     #[inline(always)]
+    fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+        match self {
+            Self::BTreeMap(inner) => inner.get_mut(k),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.get_mut(k),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.get_mut(k),
+        }
+    }
+
+    #[inline(always)]
     fn insert(&mut self, k: K, v: V) -> Option<V> {
         match self {
             Self::BTreeMap(inner) => inner.insert(k, v),
@@ -219,12 +230,31 @@ where
             .map(|v| v.value())
     }
 
+    /// Returns a mutable reference to the value corresponding to the key.
+    ///
+    /// To retrieve the value without checking expiration, use `TimedMap::get_unchecked`.
+    pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+        self.map
+            .get_mut(k)
+            .filter(|v| !v.is_expired(self.clock.elapsed_seconds_since_creation()))
+            .map(|v| v.value_mut())
+    }
+
     /// Returns the associated value if present, regardless of whether it is expired.
     ///
     /// If you only want non-expired entries, use `TimedMap::get` instead.
     #[inline(always)]
     pub fn get_unchecked(&self, k: &K) -> Option<&V> {
         self.map.get(k).map(|v| v.value())
+    }
+
+    /// Returns a mutable reference to the associated value if present, regardless of
+    /// whether it is expired.
+    ///
+    /// If you only want non-expired entries, use `TimedMap::get` instead.
+    #[inline(always)]
+    pub fn get_unchecked_mut(&mut self, k: &K) -> Option<&mut V> {
+        self.map.get_mut(k).map(|v| v.value_mut())
     }
 
     /// Returns the associated value's `Duration` if present and not expired.

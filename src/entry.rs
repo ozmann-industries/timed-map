@@ -54,6 +54,11 @@ impl<V> ExpirableEntry<V> {
         &self.value
     }
 
+    #[inline(always)]
+    pub(crate) fn value_mut(&mut self) -> &mut V {
+        &mut self.value
+    }
+
     /// Returns owned `V` and consumes `self`.
     #[inline(always)]
     pub(crate) fn owned_value(self) -> V {
