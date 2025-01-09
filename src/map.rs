@@ -186,13 +186,13 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<K, V, C> TimedMap<K, V, C>
 where
     C: Clock + Default,
     K: GenericKey,
 {
     /// Creates an empty map based on the chosen map implementation specified by `MapKind`.
-    #[cfg(feature = "std")]
     pub fn new_with_map_kind(map_kind: MapKind) -> Self {
         let map = match map_kind {
             MapKind::BTreeMap => GenericMap::<K, ExpirableEntry<V>>::BTreeMap(BTreeMap::default()),
@@ -211,7 +211,13 @@ where
             expiration_tick_cap: 1,
         }
     }
+}
 
+impl<K, V, C> TimedMap<K, V, C>
+where
+    C: Clock,
+    K: GenericKey,
+{
     /// Creates an empty `TimedMap`.
     ///
     /// Uses the provided `clock` to handle expiration times.
@@ -469,7 +475,6 @@ where
 mod tests {
     use super::*;
 
-    #[derive(Default)]
     struct MockClock {
         current_time: u64,
     }
