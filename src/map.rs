@@ -34,6 +34,7 @@ cfg_std_feature! {
 
 /// Wraps different map implementations and provides a single interface to access them.
 #[allow(clippy::enum_variant_names)]
+#[derive(Debug)]
 enum GenericMap<K, V> {
     BTreeMap(BTreeMap<K, V>),
     #[cfg(feature = "std")]
@@ -113,6 +114,7 @@ pub enum MapKind {
 /// Mutable functions automatically clears expired entries when called.
 ///
 /// If no expiration is set, the entry remains constant.
+#[derive(Debug)]
 pub struct TimedMap<C, K, V> {
     #[cfg(feature = "std")]
     clock: StdClock,

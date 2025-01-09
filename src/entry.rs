@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum EntryStatus {
     Constant,
     ExpiresAtSeconds(u64),
@@ -26,6 +26,7 @@ impl EntryStatus {
 
 /// The entry holds a value `V` and an associated `EntryStatus` which determines
 /// whether the entry is constant or expirable.
+#[derive(Debug)]
 pub(crate) struct ExpirableEntry<V> {
     value: V,
     status: EntryStatus,
