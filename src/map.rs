@@ -76,6 +76,28 @@ where
     }
 
     #[inline(always)]
+    fn len(&self) -> usize {
+        match self {
+            Self::BTreeMap(inner) => inner.len(),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.len(),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.len(),
+        }
+    }
+
+    #[inline(always)]
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::BTreeMap(inner) => inner.is_empty(),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => inner.is_empty(),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => inner.is_empty(),
+        }
+    }
+
+    #[inline(always)]
     fn insert(&mut self, k: K, v: V) -> Option<V> {
         match self {
             Self::BTreeMap(inner) => inner.insert(k, v),
@@ -272,6 +294,18 @@ where
             }
             None => None,
         }
+    }
+
+    /// Returns the number of elements in the map.
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
+    /// Returns true if the map contains no elements.
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
     }
 
     /// Inserts a key-value pair with an expiration duration. If duration is `None`,
