@@ -124,7 +124,7 @@ cfg_std_feature! {
 
     use std::marker::PhantomData;
     use std::time::Duration;
-    use std::collections::{BTreeMap, HashMap};
+    use std::collections::{BTreeMap, HashMap, BTreeSet};
     use std::hash::Hash;
     use std::vec::Vec;
     use clock::Clock;
@@ -144,7 +144,7 @@ cfg_not_std_feature! {
 
     use core::time::Duration;
     use alloc::vec::Vec;
-    use alloc::collections::BTreeMap;
+    use alloc::collections::{BTreeMap, BTreeSet};
 
     pub use clock::Clock;
 }

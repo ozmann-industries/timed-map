@@ -169,7 +169,7 @@ pub struct TimedMap<C, K, V> {
     clock: C,
 
     map: GenericMap<K, ExpirableEntry<V>>,
-    expiries: BTreeMap<u64, K>,
+    expiries: BTreeMap<u64, BTreeSet<K>>,
 
     expiration_tick: u16,
     expiration_tick_cap: u16,
@@ -323,8 +323,16 @@ where
         let now = self.clock.elapsed_seconds_since_creation();
         self.expiries
             .iter()
-            .take_while(|(exp, _)| *exp <= &now)
-            .count()
+            .filter_map(
+                |(exp, keys)| {
+                    if exp <= &now {
+                        Some(keys.len())
+                    } else {
+                        None
+                    }
+                },
+            )
+            .sum()
     }
 
     /// Returns the total number of elements (including expired ones) in the map.
@@ -374,7 +382,9 @@ where
 
         let res = self.insert(k.clone(), v, Some(expires_at));
 
-        self.expiries.insert(expires_at, k);
+        let expiry_keys = self.expiries.entry(expires_at).or_default();
+
+        expiry_keys.insert(k);
 
         if self.expiration_tick >= self.expiration_tick_cap {
             self.drop_expired_entries_inner(now);
@@ -487,13 +497,15 @@ where
 
     fn drop_expired_entries_inner(&mut self, now: u64) {
         // Iterates through `expiries` in order and drops expired ones.
-        while let Some((exp, key)) = self.expiries.iter().next() {
+        while let Some((exp, keys)) = self.expiries.iter().next() {
             // It's safe to do early-break here as keys are sorted by expiration.
             if *exp > now {
                 break;
             }
 
-            self.map.remove(key);
+            for key in keys {
+                self.map.remove(key);
+            }
         }
     }
 }
@@ -735,11 +747,11 @@ mod std_tests {
         let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
-        map.insert_expirable(2, "expirable value", Duration::from_secs(2));
-        map.insert_expirable(3, "expirable value", Duration::from_secs(10));
-        map.insert_expirable(4, "expirable value", Duration::from_secs(20));
-        map.insert_expirable(5, "expirable value", Duration::from_secs(5));
-        map.insert_expirable(6, "expirable value", Duration::from_secs(7));
+        map.insert_expirable(2, "expirable value", Duration::from_secs(1));
+        map.insert_expirable(3, "expirable value", Duration::from_secs(3));
+        map.insert_expirable(4, "expirable value", Duration::from_secs(3));
+        map.insert_expirable(5, "expirable value", Duration::from_secs(3));
+        map.insert_expirable(6, "expirable value", Duration::from_secs(3));
 
         std::thread::sleep(Duration::from_secs(2).add(Duration::from_millis(1)));
 
