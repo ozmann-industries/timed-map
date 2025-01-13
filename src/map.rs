@@ -378,6 +378,11 @@ where
         self.expiration_tick += 1;
 
         let now = self.clock.elapsed_seconds_since_creation();
+        if self.expiration_tick >= self.expiration_tick_cap {
+            self.drop_expired_entries_inner(now);
+            self.expiration_tick = 0;
+        }
+
         let expires_at = now + duration.as_secs();
 
         let res = self.insert(k.clone(), v, Some(expires_at));
@@ -385,11 +390,6 @@ where
         let expiry_keys = self.expiries.entry(expires_at).or_default();
 
         expiry_keys.insert(k);
-
-        if self.expiration_tick >= self.expiration_tick_cap {
-            self.drop_expired_entries_inner(now);
-            self.expiration_tick = 0;
-        }
 
         res
     }
@@ -418,7 +418,6 @@ where
     /// instead.
     pub fn insert_constant(&mut self, k: K, v: V) -> Option<V> {
         self.expiration_tick += 1;
-        let res = self.insert(k, v, None);
 
         let now = self.clock.elapsed_seconds_since_creation();
         if self.expiration_tick >= self.expiration_tick_cap {
@@ -426,7 +425,7 @@ where
             self.expiration_tick = 0;
         }
 
-        res
+        self.insert(k, v, None)
     }
 
     /// Inserts a key-value pair with that doesn't expire without checking the expired
