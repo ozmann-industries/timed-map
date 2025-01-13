@@ -321,10 +321,9 @@ where
     #[inline(always)]
     pub fn len_expired(&self) -> usize {
         let now = self.clock.elapsed_seconds_since_creation();
-
         self.expiries
             .iter()
-            .take_while(|(exp, _)| *exp < &now)
+            .take_while(|(exp, _)| *exp <= &now)
             .count()
     }
 
@@ -617,6 +616,8 @@ mod tests {
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod std_tests {
+    use core::ops::Add;
+
     use super::*;
 
     #[test]
@@ -718,14 +719,32 @@ mod std_tests {
     fn std_expirable_entry_still_valid_before_expiration() {
         let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
 
-        // Insert an expirable entry with a duration of 60 seconds
+        // Insert an expirable entry with a duration of 3 seconds
         map.insert_expirable(1, "expirable value", Duration::from_secs(3));
 
-        // Simulate a short sleep of 30 seconds (still valid)
+        // Simulate a short sleep of 2 seconds (still valid)
         std::thread::sleep(Duration::from_secs(2));
 
         // The entry should still be valid
         assert_eq!(map.get(&1), Some(&"expirable value"));
         assert!(map.get_remaining_duration(&1).unwrap().as_secs() == 1);
+    }
+
+    #[test]
+    fn std_length_functions() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        map.insert_expirable(1, "expirable value", Duration::from_secs(1));
+        map.insert_expirable(2, "expirable value", Duration::from_secs(2));
+        map.insert_expirable(3, "expirable value", Duration::from_secs(10));
+        map.insert_expirable(4, "expirable value", Duration::from_secs(20));
+        map.insert_expirable(5, "expirable value", Duration::from_secs(5));
+        map.insert_expirable(6, "expirable value", Duration::from_secs(7));
+
+        std::thread::sleep(Duration::from_secs(2).add(Duration::from_millis(1)));
+
+        assert_eq!(map.len(), 4);
+        assert_eq!(map.len_expired(), 2);
+        assert_eq!(map.len_unchecked(), 6);
     }
 }
