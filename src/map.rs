@@ -265,7 +265,7 @@ where
 
     /// Returns a mutable reference to the value corresponding to the key.
     ///
-    /// To retrieve the value without checking expiration, use `TimedMap::get_unchecked`.
+    /// To retrieve the value without checking expiration, use `TimedMap::get_mut_unchecked`.
     pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
         self.map
             .get_mut(k)
@@ -284,9 +284,9 @@ where
     /// Returns a mutable reference to the associated value if present, regardless of
     /// whether it is expired.
     ///
-    /// If you only want non-expired entries, use `TimedMap::get` instead.
+    /// If you only want non-expired entries, use `TimedMap::get_mut` instead.
     #[inline(always)]
-    pub fn get_unchecked_mut(&mut self, k: &K) -> Option<&mut V> {
+    pub fn get_mut_unchecked(&mut self, k: &K) -> Option<&mut V> {
         self.map.get_mut(k).map(|v| v.value_mut())
     }
 
