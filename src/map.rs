@@ -363,7 +363,17 @@ where
     #[inline(always)]
     fn insert(&mut self, k: K, v: V, expires_at: Option<u64>) -> Option<V> {
         let entry = ExpirableEntry::new(v, expires_at);
-        self.map.insert(k, entry).map(|v| v.owned_value())
+        match self.map.insert(k.clone(), entry) {
+            Some(old) => {
+                // Remove the old expiry record
+                if let EntryStatus::ExpiresAtSeconds(e) = old.status() {
+                    self.drop_key_from_expiry(e, &k)
+                }
+
+                Some(old.owned_value())
+            }
+            None => None,
+        }
     }
 
     /// Inserts a key-value pair with an expiration duration, and then drops the
@@ -387,9 +397,7 @@ where
 
         let res = self.insert(k.clone(), v, Some(expires_at));
 
-        let expiry_keys = self.expiries.entry(expires_at).or_default();
-
-        expiry_keys.insert(k);
+        self.expiries.entry(expires_at).or_default().insert(k);
 
         res
     }
@@ -452,7 +460,7 @@ where
             .remove(k)
             .filter(|v| {
                 if let EntryStatus::ExpiresAtSeconds(expires_at_seconds) = v.status() {
-                    self.expiries.remove(expires_at_seconds);
+                    self.drop_key_from_expiry(expires_at_seconds, k);
                 }
 
                 !v.is_expired(self.clock.elapsed_seconds_since_creation())
@@ -470,7 +478,7 @@ where
             .remove(k)
             .filter(|v| {
                 if let EntryStatus::ExpiresAtSeconds(expires_at_seconds) = v.status() {
-                    self.expiries.remove(expires_at_seconds);
+                    self.drop_key_from_expiry(expires_at_seconds, k);
                 }
 
                 true
@@ -505,6 +513,16 @@ where
 
             for key in keys {
                 self.map.remove(&key);
+            }
+        }
+    }
+
+    fn drop_key_from_expiry(&mut self, expiry_key: &u64, map_key: &K) {
+        if let Some(list) = self.expiries.get_mut(expiry_key) {
+            list.remove(map_key);
+
+            if list.is_empty() {
+                self.expiries.remove(expiry_key);
             }
         }
     }
@@ -758,5 +776,19 @@ mod std_tests {
         assert_eq!(map.len(), 4);
         assert_eq!(map.len_expired(), 2);
         assert_eq!(map.len_unchecked(), 6);
+    }
+
+    #[test]
+    fn std_update_expiration() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        map.insert_expirable(1, "expirable value", Duration::from_secs(1));
+        map.insert_expirable(1, "expirable value", Duration::from_secs(5));
+
+        std::thread::sleep(Duration::from_secs(2));
+
+        assert!(!map.expiries.contains_key(&1));
+        assert!(map.expiries.contains_key(&5));
+        assert_eq!(map.get(&1), Some(&"expirable value"));
     }
 }
