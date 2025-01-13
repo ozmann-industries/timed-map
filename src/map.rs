@@ -307,9 +307,32 @@ where
         }
     }
 
-    /// Returns the number of elements in the map.
+    /// Returns the number of unexpired elements in the map.
+    ///
+    /// See `TimedMap::len_expired` and `TimedMap::len_unchecked` for other usages.
     #[inline(always)]
     pub fn len(&self) -> usize {
+        self.map.len() - self.len_expired()
+    }
+
+    /// Returns the number of expired elements in the map.
+    ///
+    /// See `TimedMap::len` and `TimedMap::len_unchecked` for other usages.
+    #[inline(always)]
+    pub fn len_expired(&self) -> usize {
+        let now = self.clock.elapsed_seconds_since_creation();
+
+        self.expiries
+            .iter()
+            .take_while(|(exp, _)| *exp < &now)
+            .count()
+    }
+
+    /// Returns the total number of elements (including expired ones) in the map.
+    ///
+    /// See `TimedMap::len` and `TimedMap::len_expired` for other usages.
+    #[inline(always)]
+    pub fn len_unchecked(&self) -> usize {
         self.map.len()
     }
 
@@ -463,11 +486,11 @@ where
         self.drop_expired_entries_inner(now);
     }
 
-    fn drop_expired_entries_inner(&mut self, now_seconds: u64) {
+    fn drop_expired_entries_inner(&mut self, now: u64) {
         // Iterates through `expiries` in order and drops expired ones.
         while let Some((exp, key)) = self.expiries.iter().next() {
             // It's safe to do early-break here as keys are sorted by expiration.
-            if *exp > now_seconds {
+            if *exp > now {
                 break;
             }
 
