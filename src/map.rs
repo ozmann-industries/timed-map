@@ -497,14 +497,15 @@ where
 
     fn drop_expired_entries_inner(&mut self, now: u64) {
         // Iterates through `expiries` in order and drops expired ones.
-        while let Some((exp, keys)) = self.expiries.iter().next() {
+        while let Some((exp, keys)) = self.expiries.pop_first() {
             // It's safe to do early-break here as keys are sorted by expiration.
-            if *exp > now {
+            if exp > now {
+                self.expiries.insert(exp, keys);
                 break;
             }
 
             for key in keys {
-                self.map.remove(key);
+                self.map.remove(&key);
             }
         }
     }
