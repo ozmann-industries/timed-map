@@ -15,7 +15,7 @@
 //! use timed_map::TimedMap;
 //! use std::time::Duration;
 //!
-//! let mut map: TimedMap<_, _> = TimedMap::new();
+//! let mut map = TimedMap::new();
 //!
 //! map.insert_expirable(1, "expirable value", Duration::from_secs(60));
 //! assert_eq!(map.get(&1), Some(&"expirable value"));
@@ -63,7 +63,7 @@
 //! ```rs
 //! use timed_map::{MapKind, TimedMap};
 //!
-//! let mut map: TimedMap<_, _> = TimedMap::new_with_map_kind(MapKind::FxHashMap);
+//! let mut map = TimedMap::new_with_map_kind(MapKind::FxHashMap);
 //! ```
 //!
 //! #### Manual Expiration Control
@@ -72,7 +72,7 @@
 //! This can boost performance by running expiration logic only when it's necessary to maximize the performance.
 //!
 //! ```rs
-//! let mut map: TimedMap<_, _> = TimedMap::new();
+//! let mut map = TimedMap::new();
 //!
 //! map.insert_expirable_unchecked(1, "expirable value", Duration::from_secs(60));
 //! assert_eq!(map.get_unchecked(&1), Some(&"expirable value"));
@@ -92,7 +92,7 @@
 //! ```rs
 //! use timed_map::TimedMap;
 //!
-//! let mut map: TimedMap<_, _> = TimedMap::new().expiration_tick_cap(500);
+//! let mut map = TimedMap::new().expiration_tick_cap(500);
 //! ```
 
 #![no_std]

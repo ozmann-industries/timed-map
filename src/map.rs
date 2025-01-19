@@ -187,9 +187,8 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<K, V, C> TimedMap<K, V, C>
+impl<K, V> TimedMap<K, V, StdClock>
 where
-    C: Clock + Default,
     K: GenericKey,
 {
     /// Creates an empty map.
@@ -209,7 +208,7 @@ where
         Self {
             map,
 
-            clock: C::default(),
+            clock: StdClock::default(),
             expiries: BTreeMap::default(),
 
             expiration_tick: 0,
@@ -598,7 +597,7 @@ mod std_tests {
 
     #[test]
     fn std_expirable_and_constant_entries() {
-        let mut map: TimedMap<u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         map.insert_constant(1, "constant value");
         map.insert_expirable(2, "expirable value", Duration::from_secs(2));
@@ -612,7 +611,7 @@ mod std_tests {
 
     #[test]
     fn std_expired_entry_removal() {
-        let mut map: TimedMap<u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
         let duration = Duration::from_secs(2);
 
         map.insert_expirable(1, "expirable value", duration);
@@ -627,7 +626,7 @@ mod std_tests {
 
     #[test]
     fn std_remove_entry() {
-        let mut map: TimedMap<_, _> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         map.insert_constant(1, "constant value");
         map.insert_expirable(2, "expirable value", Duration::from_secs(2));
@@ -641,7 +640,7 @@ mod std_tests {
 
     #[test]
     fn std_drop_expired_entries() {
-        let mut map: TimedMap<u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         map.insert_expirable(1, "expirable value1", Duration::from_secs(2));
         map.insert_expirable(2, "expirable value2", Duration::from_secs(4));
@@ -656,7 +655,7 @@ mod std_tests {
 
     #[test]
     fn std_update_existing_entry() {
-        let mut map: TimedMap<u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         map.insert_constant(1, "initial value");
         assert_eq!(map.get(&1), Some(&"initial value"));
@@ -673,7 +672,7 @@ mod std_tests {
 
     #[test]
     fn std_insert_constant_and_expirable_combined() {
-        let mut map: TimedMap<u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         // Insert a constant entry and an expirable entry
         map.insert_constant(1, "constant value");
@@ -693,7 +692,7 @@ mod std_tests {
 
     #[test]
     fn std_expirable_entry_still_valid_before_expiration() {
-        let mut map: TimedMap<u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         // Insert an expirable entry with a duration of 60 seconds
         map.insert_expirable(1, "expirable value", Duration::from_secs(3));
