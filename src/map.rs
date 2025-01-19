@@ -493,7 +493,7 @@ mod tests {
     #[test]
     fn nostd_insert_and_get_constant_entry() {
         let clock = MockClock { current_time: 1000 };
-        let mut map: TimedMap<u32, &str, _> = TimedMap::new(clock);
+        let mut map = TimedMap::new(clock);
 
         map.insert_constant(1, "constant value");
 
@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn nostd_insert_and_get_expirable_entry() {
         let clock = MockClock { current_time: 1000 };
-        let mut map: TimedMap<u32, &str, _> = TimedMap::new(clock);
+        let mut map = TimedMap::new(clock);
         let duration = Duration::from_secs(60);
 
         map.insert_expirable(1, "expirable value", duration);
@@ -516,7 +516,7 @@ mod tests {
     #[test]
     fn nostd_expired_entry() {
         let clock = MockClock { current_time: 1000 };
-        let mut map: TimedMap<u32, &str, _> = TimedMap::new(clock);
+        let mut map = TimedMap::new(clock);
         let duration = Duration::from_secs(60);
 
         // Insert entry that expires in 60 seconds
@@ -534,7 +534,7 @@ mod tests {
     #[test]
     fn nostd_remove_entry() {
         let clock = MockClock { current_time: 1000 };
-        let mut map: TimedMap<u32, &str, _> = TimedMap::new(clock);
+        let mut map = TimedMap::new(clock);
 
         map.insert_constant(1, "constant value");
 
@@ -545,7 +545,7 @@ mod tests {
     #[test]
     fn nostd_drop_expired_entries() {
         let clock = MockClock { current_time: 1000 };
-        let mut map: TimedMap<u32, &str, _> = TimedMap::new(clock);
+        let mut map = TimedMap::new(clock);
 
         // Insert one constant and 2 expirable entries
         map.insert_expirable(1, "expirable value1", Duration::from_secs(50));
@@ -573,7 +573,7 @@ mod tests {
     #[test]
     fn nostd_update_existing_entry() {
         let clock = MockClock { current_time: 1000 };
-        let mut map: TimedMap<u32, &str, _> = TimedMap::new(clock);
+        let mut map = TimedMap::new(clock);
 
         map.insert_constant(1, "initial value");
         assert_eq!(map.get(&1), Some(&"initial value"));
