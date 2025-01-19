@@ -222,6 +222,24 @@ where
     C: Clock,
     K: GenericKey,
 {
+    #[cfg(feature = "std")]
+    pub fn new_with_clock_and_map_kind(clock: C, map_kind: MapKind) -> Self {
+        let map = match map_kind {
+            MapKind::BTreeMap => GenericMap::<K, ExpirableEntry<V>>::BTreeMap(BTreeMap::default()),
+            MapKind::HashMap => GenericMap::HashMap(HashMap::default()),
+            #[cfg(feature = "rustc-hash")]
+            MapKind::FxHashMap => GenericMap::FxHashMap(FxHashMap::default()),
+        };
+
+        Self {
+            map,
+            clock,
+            expiries: BTreeMap::default(),
+            expiration_tick: 0,
+            expiration_tick_cap: 1,
+        }
+    }
+
     /// Creates an empty `TimedMap`.
     ///
     /// Uses the provided `clock` to handle expiration times.
