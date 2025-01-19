@@ -17,7 +17,7 @@ automatically from the crate internals with `std::time::SystemTime`.
 use timed_map::TimedMap;
 use std::time::Duration;
 
-let mut map: TimedMap<_, _> = TimedMap::default();
+let mut map: TimedMap<_, _> = TimedMap::new();
 
 map.insert_expirable(1, "expirable value", Duration::from_secs(60));
 assert_eq!(map.get(&1), Some(&"expirable value"));
@@ -74,7 +74,7 @@ To have fully control over expired entries, use the `*_unchecked` functions and 
 This can boost performance by running expiration logic only when it's necessary to maximize the performance.
 
 ```rs
-let mut map: TimedMap<_, _> = TimedMap::default();
+let mut map: TimedMap<_, _> = TimedMap::new();
 
 map.insert_expirable_unchecked(1, "expirable value", Duration::from_secs(60));
 assert_eq!(map.get_unchecked(&1), Some(&"expirable value"));
@@ -94,5 +94,5 @@ reduce the expiration logic overhead significantly.
 ```rs
 use timed_map::TimedMap;
 
-let mut map: TimedMap<_, _> = TimedMap::default().expiration_tick_cap(500);
+let mut map: TimedMap<_, _> = TimedMap::new().expiration_tick_cap(500);
 ```
