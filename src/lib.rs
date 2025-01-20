@@ -126,6 +126,7 @@ cfg_std_feature! {
     use std::collections::{BTreeMap, HashMap};
     use std::hash::Hash;
     use std::vec::Vec;
+    use clock::{Clock, StdClock};
 
     #[cfg(not(feature = "wasm"))]
     use std::time::Instant;
@@ -133,7 +134,6 @@ cfg_std_feature! {
     #[cfg(feature = "wasm")]
     use web_time::Instant;
 
-    pub use clock::{Clock, StdClock};
     pub use map::MapKind;
 }
 
