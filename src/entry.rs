@@ -85,6 +85,11 @@ impl<V> ExpirableEntry<V> {
             )),
         }
     }
+
+    // Update status duration time, aka expiration time.
+    pub(crate) fn update_status(&mut self, status: EntryStatus) {
+        self.status = status;
+    }
 }
 
 #[cfg(test)]

@@ -492,6 +492,35 @@ where
         self.map.clear()
     }
 
+    /// Update entry's expiration time without deleting expired entries.
+    pub fn update_expirable(&mut self, key: K, duration: Duration) -> Option<&V> {
+        // drop old expiration from expiry entries.
+        {
+            let entry = self.map.get(&key).map(|en| en.status().clone());
+            if let Some(status) = entry {
+                if let EntryStatus::ExpiresAtSeconds(t) = status {
+                    self.drop_key_from_expiry(&t, &key);
+                }
+            };
+        }
+
+        let old_value = if let Some(entry) = self.map.get_mut(&key) {
+            let expiration_secs = duration.as_secs();
+            entry.update_status(EntryStatus::ExpiresAtSeconds(expiration_secs));
+
+            self.expiries
+                .entry(expiration_secs)
+                .or_default()
+                .insert(key.clone());
+
+            Some(entry.value())
+        } else {
+            None
+        };
+
+        old_value
+    }
+
     /// Clears expired entries from the map.
     ///
     /// Call this function when using `*_unchecked` inserts, as these do not
@@ -787,6 +816,20 @@ mod std_tests {
 
         std::thread::sleep(Duration::from_secs(2));
 
+        assert!(!map.expiries.contains_key(&1));
+        assert!(map.expiries.contains_key(&5));
+        assert_eq!(map.get(&1), Some(&"expirable value"));
+    }
+    #[test]
+    fn std_update_expiration_without_value() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        map.insert_expirable(1, "expirable value", Duration::from_secs(1));
+        map.update_expirable(1, Duration::from_secs(5));
+
+        std::thread::sleep(Duration::from_secs(3));
+        std::println!("1: {:?}", map.expiries.get(&1));
+        std::println!("5: {:?}", map.expiries.get(&5));
         assert!(!map.expiries.contains_key(&1));
         assert!(map.expiries.contains_key(&5));
         assert_eq!(map.get(&1), Some(&"expirable value"));
