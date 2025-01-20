@@ -492,33 +492,30 @@ where
         self.map.clear()
     }
 
-    /// Update entry's expiration time without deleting expired entries.
-    pub fn update_expirable(&mut self, key: K, duration: Duration) -> Option<&V> {
-        // drop old expiration from expiry entries.
+    /// Update entry's expiration status and return old status.
+    pub fn update_expirable_status(&mut self, key: K, duration: Duration) -> Option<EntryStatus> {
+        let mut old_status: Option<EntryStatus> = None;
         {
-            let entry = self.map.get(&key).map(|en| en.status().clone());
-            if let Some(status) = entry {
-                if let EntryStatus::ExpiresAtSeconds(t) = status {
-                    self.drop_key_from_expiry(&t, &key);
-                }
-            };
+            if let Some(entry) = self.map.get_mut(&key) {
+                let old_status_ = Some(*entry.status());
+                let expiration_secs = duration.as_secs();
+                entry.update_status(EntryStatus::ExpiresAtSeconds(expiration_secs));
+
+                self.expiries
+                    .entry(expiration_secs)
+                    .or_default()
+                    .insert(key.clone());
+
+                old_status = old_status_;
+            }
         }
 
-        let old_value = if let Some(entry) = self.map.get_mut(&key) {
-            let expiration_secs = duration.as_secs();
-            entry.update_status(EntryStatus::ExpiresAtSeconds(expiration_secs));
-
-            self.expiries
-                .entry(expiration_secs)
-                .or_default()
-                .insert(key.clone());
-
-            Some(entry.value())
-        } else {
-            None
+        if let Some(EntryStatus::ExpiresAtSeconds(t)) = old_status {
+            // drop old expiration from expiry entries.
+            self.drop_key_from_expiry(&t, &key);
         };
 
-        old_value
+        old_status
     }
 
     /// Clears expired entries from the map.
@@ -825,11 +822,9 @@ mod std_tests {
         let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
-        map.update_expirable(1, Duration::from_secs(5));
+        map.update_expirable_status(1, Duration::from_secs(5));
 
         std::thread::sleep(Duration::from_secs(3));
-        std::println!("1: {:?}", map.expiries.get(&1));
-        std::println!("5: {:?}", map.expiries.get(&5));
         assert!(!map.expiries.contains_key(&1));
         assert!(map.expiries.contains_key(&5));
         assert_eq!(map.get(&1), Some(&"expirable value"));
