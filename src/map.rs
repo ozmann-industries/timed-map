@@ -493,7 +493,7 @@ where
     }
 
     /// Update entry's expiration status and return old status.
-    pub fn update_expirable_status(&mut self, key: K, duration: Duration) -> Option<EntryStatus> {
+    pub fn update_expiration_status(&mut self, key: K, duration: Duration) -> Option<EntryStatus> {
         let mut old_status: Option<EntryStatus> = None;
         {
             if let Some(entry) = self.map.get_mut(&key) {
@@ -818,11 +818,11 @@ mod std_tests {
         assert_eq!(map.get(&1), Some(&"expirable value"));
     }
     #[test]
-    fn std_update_expiration_without_value() {
+    fn std_update_expiration_status() {
         let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
-        map.update_expirable_status(1, Duration::from_secs(5));
+        map.update_expiration_status(1, Duration::from_secs(5));
 
         std::thread::sleep(Duration::from_secs(3));
         assert!(!map.expiries.contains_key(&1));
