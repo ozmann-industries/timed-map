@@ -41,8 +41,8 @@ pub struct StdClock {
 }
 
 #[cfg(feature = "std")]
-impl Default for StdClock {
-    fn default() -> Self {
+impl StdClock {
+    pub(crate) fn new() -> Self {
         Self {
             creation: Instant::now(),
         }
