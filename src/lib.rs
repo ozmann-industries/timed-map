@@ -12,10 +12,10 @@
 //!
 //! #### In `std` environments:
 //! ```rs
-//! use timed_map::{TimedMap, StdClock};
+//! use timed_map::TimedMap;
 //! use std::time::Duration;
 //!
-//! let mut map: TimedMap<StdClock, _, _> = TimedMap::new();
+//! let mut map = TimedMap::new();
 //!
 //! map.insert_expirable(1, "expirable value", Duration::from_secs(60));
 //! assert_eq!(map.get(&1), Some(&"expirable value"));
@@ -61,9 +61,9 @@
 //! This is only available on `std` environments.
 //!
 //! ```rs
-//! use timed_map::{MapKind, StdClock, TimedMap};
+//! use timed_map::{MapKind, TimedMap};
 //!
-//! let mut map: TimedMap<StdClock, _, _> = TimedMap::new_with_map_kind(MapKind::FxHashMap);
+//! let mut map = TimedMap::new_with_map_kind(MapKind::FxHashMap);
 //! ```
 //!
 //! #### Manual Expiration Control
@@ -72,7 +72,7 @@
 //! This can boost performance by running expiration logic only when it's necessary to maximize the performance.
 //!
 //! ```rs
-//! let mut map: TimedMap<StdClock, _, _> = TimedMap::new();
+//! let mut map = TimedMap::new();
 //!
 //! map.insert_expirable_unchecked(1, "expirable value", Duration::from_secs(60));
 //! assert_eq!(map.get_unchecked(&1), Some(&"expirable value"));
@@ -90,9 +90,9 @@
 //! reduce the expiration logic overhead significantly.
 //!
 //! ```rs
-//! use timed_map::{TimedMap, StdClock};
+//! use timed_map::TimedMap;
 //!
-//! let mut map: TimedMap<StdClock, _, _> = TimedMap::new().expiration_tick_cap(500);
+//! let mut map = TimedMap::new().expiration_tick_cap(500);
 //! ```
 
 #![no_std]
@@ -122,12 +122,11 @@ macro_rules! cfg_not_std_feature {
 cfg_std_feature! {
     extern crate std;
 
-    use std::marker::PhantomData;
     use std::time::Duration;
     use std::collections::{BTreeMap, HashMap, BTreeSet};
     use std::hash::Hash;
     use std::vec::Vec;
-    use clock::Clock;
+    use clock::{Clock, StdClock};
 
     #[cfg(not(feature = "wasm"))]
     use std::time::Instant;
@@ -135,7 +134,6 @@ cfg_std_feature! {
     #[cfg(feature = "wasm")]
     use web_time::Instant;
 
-    pub use clock::StdClock;
     pub use map::MapKind;
 }
 

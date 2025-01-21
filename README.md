@@ -14,10 +14,10 @@ automatically from the crate internals with `std::time::SystemTime`.
 
 #### In `std` environments:
 ```rs
-use timed_map::{TimedMap, StdClock};
+use timed_map::TimedMap;
 use std::time::Duration;
 
-let mut map: TimedMap<StdClock, _, _> = TimedMap::new();
+let mut map = TimedMap::new();
 
 map.insert_expirable(1, "expirable value", Duration::from_secs(60));
 assert_eq!(map.get(&1), Some(&"expirable value"));
@@ -63,9 +63,9 @@ By default, `TimedMap` uses `BTreeMap` to store data, but you can switch to `FxH
 This is only available on `std` environments.
 
 ```rs
-use timed_map::{MapKind, StdClock, TimedMap};
+use timed_map::{MapKind, TimedMap};
 
-let mut map: TimedMap<StdClock, _, _> = TimedMap::new_with_map_kind(MapKind::FxHashMap);
+let mut map = TimedMap::new_with_map_kind(MapKind::FxHashMap);
 ```
 
 #### Manual Expiration Control
@@ -74,7 +74,7 @@ To have fully control over expired entries, use the `*_unchecked` functions and 
 This can boost performance by running expiration logic only when it's necessary to maximize the performance.
 
 ```rs
-let mut map: TimedMap<StdClock, _, _> = TimedMap::new();
+let mut map = TimedMap::new();
 
 map.insert_expirable_unchecked(1, "expirable value", Duration::from_secs(60));
 assert_eq!(map.get_unchecked(&1), Some(&"expirable value"));
@@ -92,7 +92,7 @@ if there are 100 inserts per second, setting `expiration_tick_cap` to 100 will t
 reduce the expiration logic overhead significantly.
 
 ```rs
-use timed_map::{TimedMap, StdClock};
+use timed_map::TimedMap;
 
-let mut map: TimedMap<StdClock, _, _> = TimedMap::new().expiration_tick_cap(500);
+let mut map = TimedMap::new().expiration_tick_cap(500);
 ```
