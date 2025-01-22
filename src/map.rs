@@ -492,7 +492,7 @@ where
         self.map.clear()
     }
 
-    /// Updates the expiration status of an entry and return the old status.
+    /// Updates the expiration status of an entry and returns the old status.
     ///
     /// If the entry does not exist, returns Err.
     /// If the entry's old status is `EntryStatus::Constant`, returns None.
@@ -506,12 +506,12 @@ where
                 let old_status = *entry.status();
                 let now = self.clock.elapsed_seconds_since_creation();
                 let expires_at = now + duration.as_secs();
+
                 entry.update_status(EntryStatus::ExpiresAtSeconds(expires_at));
 
                 if let EntryStatus::ExpiresAtSeconds(t) = &old_status {
                     self.drop_key_from_expiry(t, &key);
                 }
-
                 self.expiries
                     .entry(expires_at)
                     .or_default()
@@ -702,8 +702,9 @@ mod tests {
         map.update_expiration_status(1, Duration::from_secs(15))
             .expect("entry update shouldn't fail");
 
-        // We still have our entry.
+        // We should still have our entry.
         assert_eq!(map.get(&1), Some(&"expirable value"));
+        assert!(map.expiries.contains_key(&1015));
     }
 }
 
@@ -881,5 +882,6 @@ mod std_tests {
 
         // We should still have our entry.
         assert_eq!(map.get(&1), Some(&"expirable value"));
+        assert!(map.expiries.contains_key(&5));
     }
 }
