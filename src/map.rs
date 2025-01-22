@@ -1,5 +1,3 @@
-use error::TimedMapError;
-
 use super::*;
 
 macro_rules! cfg_std_feature {
@@ -502,7 +500,7 @@ where
         &mut self,
         key: K,
         duration: Duration,
-    ) -> Result<Option<EntryStatus>, TimedMapError> {
+    ) -> Result<Option<EntryStatus>, &'static str> {
         match self.map.get_mut(&key) {
             Some(entry) => {
                 let old_status = *entry.status();
@@ -510,20 +508,20 @@ where
                 let expires_at = now + duration.as_secs();
                 entry.update_status(EntryStatus::ExpiresAtSeconds(expires_at));
 
-                self.expiries
-                    .entry(expires_at)
-                    .or_default()
-                    .insert(key.clone());
-
                 match &old_status {
                     EntryStatus::Constant => Ok(None),
                     EntryStatus::ExpiresAtSeconds(t) => {
                         self.drop_key_from_expiry(t, &key);
+                        self.expiries
+                            .entry(expires_at)
+                            .or_default()
+                            .insert(key.clone());
+
                         Ok(Some(old_status))
                     }
                 }
             }
-            None => Err(TimedMapError::EntryNotFound),
+            None => Err("entry not found"),
         }
     }
 
@@ -678,7 +676,7 @@ mod tests {
     }
 
     #[test]
-    fn nostd_update_expiration_status() {
+    fn nostd_update_expirable_entry_status() {
         let clock = MockClock { current_time: 1000 };
         let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
 
@@ -833,7 +831,7 @@ mod std_tests {
     }
 
     #[test]
-    fn std_update_expiration() {
+    fn std_update_expirable_entry() {
         let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
@@ -847,7 +845,7 @@ mod std_tests {
     }
 
     #[test]
-    fn std_update_expiration_status() {
+    fn std_update_expirable_entry_status() {
         let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));

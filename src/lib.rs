@@ -99,7 +99,6 @@
 
 mod clock;
 mod entry;
-mod error;
 mod map;
 
 macro_rules! cfg_std_feature {
