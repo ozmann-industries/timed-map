@@ -508,18 +508,20 @@ where
                 let expires_at = now + duration.as_secs();
                 entry.update_status(EntryStatus::ExpiresAtSeconds(expires_at));
 
-                match &old_status {
-                    EntryStatus::Constant => Ok(None),
+                let res = match &old_status {
+                    EntryStatus::Constant => None,
                     EntryStatus::ExpiresAtSeconds(t) => {
                         self.drop_key_from_expiry(t, &key);
-                        self.expiries
-                            .entry(expires_at)
-                            .or_default()
-                            .insert(key.clone());
-
-                        Ok(Some(old_status))
+                        Some(old_status)
                     }
-                }
+                };
+
+                self.expiries
+                    .entry(expires_at)
+                    .or_default()
+                    .insert(key.clone());
+
+                Ok(res)
             }
             None => Err("entry not found"),
         }
