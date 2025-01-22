@@ -491,6 +491,37 @@ where
         self.map.clear()
     }
 
+    /// Updates the expiration status of an entry and returns the old status.
+    ///
+    /// If the entry does not exist, returns Err.
+    /// If the entry's old status is `EntryStatus::Constant`, returns None.
+    pub fn update_expiration_status(
+        &mut self,
+        key: K,
+        duration: Duration,
+    ) -> Result<Option<EntryStatus>, &'static str> {
+        match self.map.get_mut(&key) {
+            Some(entry) => {
+                let old_status = *entry.status();
+                let now = self.clock.elapsed_seconds_since_creation();
+                let expires_at = now + duration.as_secs();
+
+                entry.update_status(EntryStatus::ExpiresAtSeconds(expires_at));
+
+                if let EntryStatus::ExpiresAtSeconds(t) = &old_status {
+                    self.drop_key_from_expiry(t, &key);
+                }
+                self.expiries
+                    .entry(expires_at)
+                    .or_default()
+                    .insert(key.clone());
+
+                Ok(Some(old_status))
+            }
+            None => Err("entry not found"),
+        }
+    }
+
     /// Clears expired entries from the map.
     ///
     /// Call this function when using `*_unchecked` inserts, as these do not
@@ -640,6 +671,40 @@ mod tests {
 
         assert_eq!(map.get(&1), None);
     }
+
+    #[test]
+    fn nostd_update_expirable_entry_status() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+
+        map.insert_constant(1, "initial value");
+        assert_eq!(map.get(&1), Some(&"initial value"));
+
+        // Update the value of the existing key and make it expirable
+        map.update_expiration_status(1, Duration::from_secs(16))
+            .expect("entry update shouldn't fail");
+        assert_eq!(map.get(&1), Some(&"initial value"));
+
+        // Simulate time passage and expire the updated entry
+        let clock = MockClock { current_time: 1017 };
+        map.clock = clock;
+        assert_eq!(map.get(&1), None);
+    }
+
+    #[test]
+    fn nostd_update_expirable_entry_status_with_previou_time() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+
+        // Insert map entry followed by immediately updating expiration time
+        map.insert_expirable(1, "expirable value", Duration::from_secs(15));
+        map.update_expiration_status(1, Duration::from_secs(15))
+            .expect("entry update shouldn't fail");
+
+        // We should still have our entry.
+        assert_eq!(map.get(&1), Some(&"expirable value"));
+        assert!(map.expiries.contains_key(&1015));
+    }
 }
 
 #[cfg(feature = "std")]
@@ -778,7 +843,7 @@ mod std_tests {
     }
 
     #[test]
-    fn std_update_expiration() {
+    fn std_update_expirable_entry() {
         let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
@@ -789,5 +854,33 @@ mod std_tests {
         assert!(!map.expiries.contains_key(&1));
         assert!(map.expiries.contains_key(&5));
         assert_eq!(map.get(&1), Some(&"expirable value"));
+    }
+
+    #[test]
+    fn std_update_expirable_entry_status() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        map.insert_expirable(1, "expirable value", Duration::from_secs(1));
+        map.update_expiration_status(1, Duration::from_secs(5))
+            .expect("entry update shouldn't fail");
+
+        std::thread::sleep(Duration::from_secs(3));
+        assert!(!map.expiries.contains_key(&1));
+        assert!(map.expiries.contains_key(&5));
+        assert_eq!(map.get(&1), Some(&"expirable value"));
+    }
+
+    #[test]
+    fn std_update_expirable_entry_status_with_previou_time() {
+        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+
+        // Insert map entry followed by immediately updating expiration time
+        map.insert_expirable(1, "expirable value", Duration::from_secs(5));
+        map.update_expiration_status(1, Duration::from_secs(5))
+            .expect("entry update shouldn't fail");
+
+        // We should still have our entry.
+        assert_eq!(map.get(&1), Some(&"expirable value"));
+        assert!(map.expiries.contains_key(&5));
     }
 }
