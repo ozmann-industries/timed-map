@@ -675,7 +675,7 @@ mod tests {
     #[test]
     fn nostd_update_expirable_entry_status() {
         let clock = MockClock { current_time: 1000 };
-        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+        let mut map = TimedMap::new(clock);
 
         map.insert_constant(1, "initial value");
         assert_eq!(map.get(&1), Some(&"initial value"));
@@ -694,7 +694,7 @@ mod tests {
     #[test]
     fn nostd_update_expirable_entry_status_with_previou_time() {
         let clock = MockClock { current_time: 1000 };
-        let mut map: TimedMap<MockClock, u32, &str> = TimedMap::new(clock);
+        let mut map = TimedMap::new(clock);
 
         // Insert map entry followed by immediately updating expiration time
         map.insert_expirable(1, "expirable value", Duration::from_secs(15));
@@ -826,7 +826,7 @@ mod std_tests {
 
     #[test]
     fn std_length_functions() {
-        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
         map.insert_expirable(2, "expirable value", Duration::from_secs(1));
@@ -844,7 +844,7 @@ mod std_tests {
 
     #[test]
     fn std_update_expirable_entry() {
-        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
         map.insert_expirable(1, "expirable value", Duration::from_secs(5));
@@ -858,7 +858,7 @@ mod std_tests {
 
     #[test]
     fn std_update_expirable_entry_status() {
-        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
         map.update_expiration_status(1, Duration::from_secs(5))
@@ -872,7 +872,7 @@ mod std_tests {
 
     #[test]
     fn std_update_expirable_entry_status_with_previou_time() {
-        let mut map: TimedMap<StdClock, u32, &str> = TimedMap::new();
+        let mut map = TimedMap::new();
 
         // Insert map entry followed by immediately updating expiration time
         map.insert_expirable(1, "expirable value", Duration::from_secs(5));
