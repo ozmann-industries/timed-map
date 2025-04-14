@@ -412,7 +412,12 @@ where
     pub fn insert_expirable_unchecked(&mut self, k: K, v: V, duration: Duration) -> Option<V> {
         let now = self.clock.elapsed_seconds_since_creation();
         let expires_at = now + duration.as_secs();
-        self.insert(k, v, Some(expires_at))
+
+        let res = self.insert(k.clone(), v, Some(expires_at));
+
+        self.expiries.entry(expires_at).or_default().insert(k);
+
+        res
     }
 
     /// Inserts a key-value pair with that doesn't expire, and then drops the
