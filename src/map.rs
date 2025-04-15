@@ -561,6 +561,13 @@ where
             }
         }
     }
+
+    fn contains_key(&self, k: &K) -> bool {
+        self.map
+            .get(k)
+            .filter(|v| !v.is_expired(self.clock.elapsed_seconds_since_creation()))
+            .is_some()
+    }
 }
 
 #[cfg(test)]
@@ -709,6 +716,16 @@ mod tests {
         // We should still have our entry.
         assert_eq!(map.get(&1), Some(&"expirable value"));
         assert!(map.expiries.contains_key(&1015));
+    }
+
+    #[test]
+    fn nostd_contains_key() {
+        let clock = MockClock { current_time: 1000 };
+        let mut map = TimedMap::new(clock);
+
+        // Insert map entry and check if exists
+        map.insert_expirable(1, "expirable value", Duration::from_secs(5));
+        assert!(map.contains_key(&1));
     }
 }
 
@@ -887,5 +904,24 @@ mod std_tests {
         // We should still have our entry.
         assert_eq!(map.get(&1), Some(&"expirable value"));
         assert!(map.expiries.contains_key(&5));
+    }
+
+    #[test]
+    fn std_contains_key() {
+        let mut map = TimedMap::new();
+
+        // Insert map entry and check if exists
+        map.insert_expirable(1, "expirable value", Duration::from_secs(1));
+        assert!(map.contains_key(&1));
+    }
+
+    #[test]
+    fn std_does_not_contain_key_anymore() {
+        let mut map = TimedMap::new();
+
+        // Insert map entry and check if still exists after expiry
+        map.insert_expirable(1, "expirable value", Duration::from_secs(1));
+        std::thread::sleep(Duration::from_secs(2));
+        assert!(!map.contains_key(&1));
     }
 }
