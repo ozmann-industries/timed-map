@@ -562,7 +562,10 @@ where
         }
     }
 
-    fn contains_key(&self, k: &K) -> bool {
+    /// Returns `true` if the map contains a value for the specified key.
+    ///
+    #[inline(always)]
+    pub fn contains_key(&self, k: &K) -> bool {
         self.map
             .get(k)
             .filter(|v| !v.is_expired(self.clock.elapsed_seconds_since_creation()))
