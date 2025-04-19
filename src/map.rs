@@ -562,14 +562,20 @@ where
         }
     }
 
-    /// Returns `true` if the map contains a value for the specified key.
+    /// Returns `true` if the map contains a non-expired value for the given key.
     ///
+    /// To include expired entries as well, use [`TimedMap::contains_key_unchecked`].
     #[inline(always)]
     pub fn contains_key(&self, k: &K) -> bool {
-        self.map
-            .get(k)
-            .filter(|v| !v.is_expired(self.clock.elapsed_seconds_since_creation()))
-            .is_some()
+        self.get(k).is_some()
+    }
+
+    /// Returns `true` if the map contains a value for the given key regardless of expiration status.
+    ///
+    /// To exclude expired entries, use [`TimedMap::contains_key`] instead.
+    #[inline(always)]
+    pub fn contains_key_unchecked(&self, k: &K) -> bool {
+        self.map.keys().contains(k)
     }
 }
 
@@ -926,5 +932,14 @@ mod std_tests {
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
         std::thread::sleep(Duration::from_secs(2));
         assert!(!map.contains_key(&1));
+    }
+
+    #[test]
+    fn std_contains_key_unchecked() {
+        let mut map = TimedMap::new();
+
+        map.insert_expirable(1, "expirable value", Duration::from_secs(1));
+        std::thread::sleep(Duration::from_secs(2));
+        assert!(map.contains_key_unchecked(&1));
     }
 }
