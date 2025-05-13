@@ -92,6 +92,16 @@ impl<V> ExpirableEntry<V> {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<V: serde::Serialize> serde::Serialize for ExpirableEntry<V> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.value.serialize(serializer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
