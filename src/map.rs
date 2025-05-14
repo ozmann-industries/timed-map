@@ -169,6 +169,22 @@ pub struct TimedMap<K, V, #[cfg(feature = "std")] C = StdClock, #[cfg(not(featur
     expiration_tick_cap: u16,
 }
 
+#[cfg(feature = "serde")]
+impl<K: serde::Serialize + Ord, V: serde::Serialize, C> serde::Serialize for TimedMap<K, V, C> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match &self.map {
+            GenericMap::BTreeMap(inner) => serializer.collect_map(inner),
+            #[cfg(feature = "std")]
+            GenericMap::HashMap(inner) => serializer.collect_map(inner),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            GenericMap::FxHashMap(inner) => serializer.collect_map(inner),
+        }
+    }
+}
+
 impl<K, V, C> Default for TimedMap<K, V, C>
 where
     C: Default,
