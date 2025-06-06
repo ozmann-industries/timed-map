@@ -170,17 +170,29 @@ pub struct TimedMap<K, V, #[cfg(feature = "std")] C = StdClock, #[cfg(not(featur
 }
 
 #[cfg(feature = "serde")]
-impl<K: serde::Serialize + Ord, V: serde::Serialize, C> serde::Serialize for TimedMap<K, V, C> {
+impl<K: serde::Serialize + Ord, V: serde::Serialize, C: Clock> serde::Serialize
+    for TimedMap<K, V, C>
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        let now = self.clock.elapsed_seconds_since_creation();
         match &self.map {
-            GenericMap::BTreeMap(inner) => serializer.collect_map(inner),
+            GenericMap::BTreeMap(inner) => {
+                let map = inner.iter().filter(|(_k, v)| !v.is_expired(now));
+                serializer.collect_map(map)
+            }
             #[cfg(feature = "std")]
-            GenericMap::HashMap(inner) => serializer.collect_map(inner),
+            GenericMap::HashMap(inner) => {
+                let map = inner.iter().filter(|(_k, v)| !v.is_expired(now));
+                serializer.collect_map(map)
+            }
             #[cfg(all(feature = "std", feature = "rustc-hash"))]
-            GenericMap::FxHashMap(inner) => serializer.collect_map(inner),
+            GenericMap::FxHashMap(inner) => {
+                let map = inner.iter().filter(|(_k, v)| !v.is_expired(now));
+                serializer.collect_map(map)
+            }
         }
     }
 }
@@ -957,5 +969,21 @@ mod std_tests {
         map.insert_expirable(1, "expirable value", Duration::from_secs(1));
         std::thread::sleep(Duration::from_secs(2));
         assert!(map.contains_key_unchecked(&1));
+    }
+
+    #[test]
+    fn ignore_expired_entries_on_serialize() {
+        let mut map = TimedMap::new();
+
+        map.insert_expirable(1, "expirable value", Duration::from_secs(1));
+        map.insert_expirable(2, "expirable value2", Duration::from_secs(5));
+        std::thread::sleep(Duration::from_secs(2));
+
+        let actual = serde_json::json!(map);
+        let expected = serde_json::json!({
+            "2": "expirable value2"
+        });
+
+        assert_eq!(expected, actual);
     }
 }
