@@ -972,6 +972,7 @@ mod std_tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn ignore_expired_entries_on_serialize() {
         let mut map = TimedMap::new();
 
