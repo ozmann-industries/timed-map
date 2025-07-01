@@ -99,6 +99,7 @@
 
 mod clock;
 mod entry;
+mod iter;
 mod map;
 
 macro_rules! cfg_std_feature {
@@ -123,7 +124,7 @@ cfg_std_feature! {
     extern crate std;
 
     use std::time::Duration;
-    use std::collections::{BTreeMap, HashMap, BTreeSet};
+    use std::collections::{btree_map, hash_map, BTreeMap, HashMap, BTreeSet};
     use std::hash::Hash;
     use std::vec::Vec;
     use clock::{Clock, StdClock};
@@ -142,7 +143,7 @@ cfg_not_std_feature! {
 
     use core::time::Duration;
     use alloc::vec::Vec;
-    use alloc::collections::{BTreeMap, BTreeSet};
+    use alloc::collections::{btree_map, BTreeMap, BTreeSet};
 
     pub use clock::Clock;
 }

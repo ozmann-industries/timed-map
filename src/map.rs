@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::iter::{GenericMapIter, GenericMapIterMut};
+
 macro_rules! cfg_std_feature {
     ($($item:item)*) => {
         $(
@@ -138,6 +140,26 @@ where
             Self::HashMap(inner) => inner.remove(k),
             #[cfg(all(feature = "std", feature = "rustc-hash"))]
             Self::FxHashMap(inner) => inner.remove(k),
+        }
+    }
+
+    fn iter(&self) -> GenericMapIter<K, V> {
+        match self {
+            Self::BTreeMap(inner) => GenericMapIter::BTreeMap(inner.iter()),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => GenericMapIter::HashMap(inner.iter()),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => GenericMapIter::FxHashMap(inner.iter()),
+        }
+    }
+
+    fn iter_mut(&mut self) -> GenericMapIterMut<K, V> {
+        match self {
+            Self::BTreeMap(inner) => GenericMapIterMut::BTreeMap(inner.iter_mut()),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => GenericMapIterMut::HashMap(inner.iter_mut()),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => GenericMapIterMut::FxHashMap(inner.iter_mut()),
         }
     }
 }
@@ -522,6 +544,40 @@ where
     #[inline(always)]
     pub fn clear(&mut self) {
         self.map.clear()
+    }
+
+    /// Returns an iterator over non-expired key-value pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        let now = self.clock.elapsed_seconds_since_creation();
+        self.map.iter().filter_map(move |(k, v)| {
+            if !v.is_expired(now) {
+                Some((k, v.value()))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Returns an iterator over all key-value pairs, including expired ones.
+    pub fn iter_unchecked(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.map.iter().map(|(k, v)| (k, v.value()))
+    }
+
+    /// Returns a mutable iterator over non-expired key-value pairs.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
+        let now = self.clock.elapsed_seconds_since_creation();
+        self.map.iter_mut().filter_map(move |(k, v)| {
+            if !v.is_expired(now) {
+                Some((k, v.value_mut()))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Returns a mutable iterator over all key-value pairs, including expired ones.
+    pub fn iter_mut_unchecked(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
+        self.map.iter_mut().map(|(k, v)| (k, v.value_mut()))
     }
 
     /// Updates the expiration status of an entry and returns the old status.
