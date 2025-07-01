@@ -555,17 +555,18 @@ where
         }
     }
 
-    /// Clears expired entries from the map.
+    /// Clears expired entries from the map and returns them.
     ///
     /// Call this function when using `*_unchecked` inserts, as these do not
     /// automatically clear expired entries.
     #[inline(always)]
-    pub fn drop_expired_entries(&mut self) {
+    pub fn drop_expired_entries(&mut self) -> Vec<(K, V)> {
         let now = self.clock.elapsed_seconds_since_creation();
-        self.drop_expired_entries_inner(now);
+        self.drop_expired_entries_inner(now)
     }
 
-    fn drop_expired_entries_inner(&mut self, now: u64) {
+    fn drop_expired_entries_inner(&mut self, now: u64) -> Vec<(K, V)> {
+        let mut expired_entries = Vec::new();
         // Iterates through `expiries` in order and drops expired ones.
         while let Some((exp, keys)) = self.expiries.pop_first() {
             // It's safe to do early-break here as keys are sorted by expiration.
@@ -575,9 +576,13 @@ where
             }
 
             for key in keys {
-                self.map.remove(&key);
+                if let Some(value) = self.map.remove(&key) {
+                    expired_entries.push((key, value.owned_value()));
+                }
             }
         }
+
+        expired_entries
     }
 
     fn drop_key_from_expiry(&mut self, expiry_key: &u64, map_key: &K) {
