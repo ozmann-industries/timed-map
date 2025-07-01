@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::iter::{GenericMapIter, GenericMapIterMut};
+use crate::iter::{GenericMapIntoIter, GenericMapIter, GenericMapIterMut};
 
 macro_rules! cfg_std_feature {
     ($($item:item)*) => {
@@ -153,6 +153,16 @@ where
         }
     }
 
+    fn into_iter(self) -> GenericMapIntoIter<K, V> {
+        match self {
+            Self::BTreeMap(inner) => GenericMapIntoIter::BTreeMap(inner.into_iter()),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => GenericMapIntoIter::HashMap(inner.into_iter()),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => GenericMapIntoIter::FxHashMap(inner.into_iter()),
+        }
+    }
+
     fn iter_mut(&mut self) -> GenericMapIterMut<K, V> {
         match self {
             Self::BTreeMap(inner) => GenericMapIterMut::BTreeMap(inner.iter_mut()),
@@ -272,7 +282,6 @@ where
 impl<K, V, C> IntoIterator for TimedMap<K, V, C>
 where
     K: GenericKey,
-    V: Clone,
     C: Clock,
 {
     type Item = (K, V);
@@ -282,10 +291,10 @@ where
         let now = self.clock.elapsed_seconds_since_creation();
         let items: Vec<(K, V)> = self
             .map
-            .iter()
+            .into_iter()
             .filter_map(|(k, v)| {
                 if !v.is_expired(now) {
-                    Some((k.clone(), v.value().clone()))
+                    Some((k.clone(), v.owned_value()))
                 } else {
                     None
                 }
