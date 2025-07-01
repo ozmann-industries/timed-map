@@ -219,7 +219,6 @@ impl<K: serde::Serialize + Ord, V: serde::Serialize, C: Clock> serde::Serialize
     }
 }
 
-
 impl<'a, K, V, C> IntoIterator for &'a TimedMap<K, V, C>
 where
     K: GenericKey,

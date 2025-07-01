@@ -1,5 +1,6 @@
 use super::*;
 
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum GenericMapIter<'a, K, V> {
     BTreeMap(btree_map::Iter<'a, K, V>),
     #[cfg(feature = "std")]
@@ -8,6 +9,7 @@ pub(crate) enum GenericMapIter<'a, K, V> {
     FxHashMap(hash_map::Iter<'a, K, V>),
 }
 
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum GenericMapIterMut<'a, K, V> {
     BTreeMap(btree_map::IterMut<'a, K, V>),
     #[cfg(feature = "std")]
