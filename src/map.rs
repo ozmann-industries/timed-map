@@ -219,6 +219,83 @@ impl<K: serde::Serialize + Ord, V: serde::Serialize, C: Clock> serde::Serialize
     }
 }
 
+
+impl<'a, K, V, C> IntoIterator for &'a TimedMap<K, V, C>
+where
+    K: GenericKey,
+    C: Clock,
+{
+    type Item = (&'a K, &'a V);
+    type IntoIter = std::vec::IntoIter<(&'a K, &'a V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let now = self.clock.elapsed_seconds_since_creation();
+        let items: Vec<(&K, &V)> = self
+            .map
+            .iter()
+            .filter_map(|(k, v)| {
+                if !v.is_expired(now) {
+                    Some((k, v.value()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        items.into_iter()
+    }
+}
+
+impl<'a, K, V, C> IntoIterator for &'a mut TimedMap<K, V, C>
+where
+    K: GenericKey,
+    C: Clock,
+{
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = std::vec::IntoIter<(&'a K, &'a mut V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let now = self.clock.elapsed_seconds_since_creation();
+        let items: Vec<(&K, &mut V)> = self
+            .map
+            .iter_mut()
+            .filter_map(|(k, v)| {
+                if !v.is_expired(now) {
+                    Some((k, v.value_mut()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        items.into_iter()
+    }
+}
+
+impl<K, V, C> IntoIterator for TimedMap<K, V, C>
+where
+    K: GenericKey,
+    V: Clone,
+    C: Clock,
+{
+    type Item = (K, V);
+    type IntoIter = std::vec::IntoIter<(K, V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let now = self.clock.elapsed_seconds_since_creation();
+        let items: Vec<(K, V)> = self
+            .map
+            .iter()
+            .filter_map(|(k, v)| {
+                if !v.is_expired(now) {
+                    Some((k.clone(), v.value().clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        items.into_iter()
+    }
+}
+
 impl<K, V, C> Default for TimedMap<K, V, C>
 where
     C: Default,
