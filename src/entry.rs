@@ -26,7 +26,7 @@ impl EntryStatus {
 
 /// The entry holds a value `V` and an associated `EntryStatus` which determines
 /// whether the entry is constant or expirable.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ExpirableEntry<V> {
     value: V,
     status: EntryStatus,
