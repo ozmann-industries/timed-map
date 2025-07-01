@@ -225,7 +225,7 @@ where
     C: Clock,
 {
     type Item = (&'a K, &'a V);
-    type IntoIter = std::vec::IntoIter<(&'a K, &'a V)>;
+    type IntoIter = IntoIter<(&'a K, &'a V)>;
 
     fn into_iter(self) -> Self::IntoIter {
         let now = self.clock.elapsed_seconds_since_creation();
@@ -250,7 +250,7 @@ where
     C: Clock,
 {
     type Item = (&'a K, &'a mut V);
-    type IntoIter = std::vec::IntoIter<(&'a K, &'a mut V)>;
+    type IntoIter = IntoIter<(&'a K, &'a mut V)>;
 
     fn into_iter(self) -> Self::IntoIter {
         let now = self.clock.elapsed_seconds_since_creation();
@@ -276,7 +276,7 @@ where
     C: Clock,
 {
     type Item = (K, V);
-    type IntoIter = std::vec::IntoIter<(K, V)>;
+    type IntoIter = IntoIter<(K, V)>;
 
     fn into_iter(self) -> Self::IntoIter {
         let now = self.clock.elapsed_seconds_since_creation();
