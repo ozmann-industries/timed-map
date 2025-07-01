@@ -35,7 +35,7 @@ pub trait Clock {
 /// When `std` is enabled, this is automatically utilized in `TimedMap`
 /// to avoid requiring users to implement the `Clock` trait themselves.
 #[cfg(feature = "std")]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct StdClock {
     creation: Instant,
 }

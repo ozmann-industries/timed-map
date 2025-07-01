@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::iter::{GenericMapIntoIter, GenericMapIter, GenericMapIterMut};
+
 macro_rules! cfg_std_feature {
     ($($item:item)*) => {
         $(
@@ -34,7 +36,7 @@ cfg_std_feature! {
 
 /// Wraps different map implementations and provides a single interface to access them.
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum GenericMap<K, V> {
     BTreeMap(BTreeMap<K, V>),
     #[cfg(feature = "std")]
@@ -140,6 +142,36 @@ where
             Self::FxHashMap(inner) => inner.remove(k),
         }
     }
+
+    fn iter(&self) -> GenericMapIter<K, V> {
+        match self {
+            Self::BTreeMap(inner) => GenericMapIter::BTreeMap(inner.iter()),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => GenericMapIter::HashMap(inner.iter()),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => GenericMapIter::FxHashMap(inner.iter()),
+        }
+    }
+
+    fn into_iter(self) -> GenericMapIntoIter<K, V> {
+        match self {
+            Self::BTreeMap(inner) => GenericMapIntoIter::BTreeMap(inner.into_iter()),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => GenericMapIntoIter::HashMap(inner.into_iter()),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => GenericMapIntoIter::FxHashMap(inner.into_iter()),
+        }
+    }
+
+    fn iter_mut(&mut self) -> GenericMapIterMut<K, V> {
+        match self {
+            Self::BTreeMap(inner) => GenericMapIterMut::BTreeMap(inner.iter_mut()),
+            #[cfg(feature = "std")]
+            Self::HashMap(inner) => GenericMapIterMut::HashMap(inner.iter_mut()),
+            #[cfg(all(feature = "std", feature = "rustc-hash"))]
+            Self::FxHashMap(inner) => GenericMapIterMut::FxHashMap(inner.iter_mut()),
+        }
+    }
 }
 
 /// Specifies the inner map implementation for `TimedMap`.
@@ -158,7 +190,7 @@ pub enum MapKind {
 /// Mutable functions automatically clears expired entries when called.
 ///
 /// If no expiration is set, the entry remains constant.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TimedMap<K, V, #[cfg(feature = "std")] C = StdClock, #[cfg(not(feature = "std"))] C> {
     clock: C,
 
@@ -194,6 +226,81 @@ impl<K: serde::Serialize + Ord, V: serde::Serialize, C: Clock> serde::Serialize
                 serializer.collect_map(map)
             }
         }
+    }
+}
+
+impl<'a, K, V, C> IntoIterator for &'a TimedMap<K, V, C>
+where
+    K: GenericKey,
+    C: Clock,
+{
+    type Item = (&'a K, &'a V);
+    type IntoIter = IntoIter<(&'a K, &'a V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let now = self.clock.elapsed_seconds_since_creation();
+        let items: Vec<(&K, &V)> = self
+            .map
+            .iter()
+            .filter_map(|(k, v)| {
+                if !v.is_expired(now) {
+                    Some((k, v.value()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        items.into_iter()
+    }
+}
+
+impl<'a, K, V, C> IntoIterator for &'a mut TimedMap<K, V, C>
+where
+    K: GenericKey,
+    C: Clock,
+{
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = IntoIter<(&'a K, &'a mut V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let now = self.clock.elapsed_seconds_since_creation();
+        let items: Vec<(&K, &mut V)> = self
+            .map
+            .iter_mut()
+            .filter_map(|(k, v)| {
+                if !v.is_expired(now) {
+                    Some((k, v.value_mut()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        items.into_iter()
+    }
+}
+
+impl<K, V, C> IntoIterator for TimedMap<K, V, C>
+where
+    K: GenericKey,
+    C: Clock,
+{
+    type Item = (K, V);
+    type IntoIter = IntoIter<(K, V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let now = self.clock.elapsed_seconds_since_creation();
+        let items: Vec<(K, V)> = self
+            .map
+            .into_iter()
+            .filter_map(|(k, v)| {
+                if !v.is_expired(now) {
+                    Some((k.clone(), v.owned_value()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        items.into_iter()
     }
 }
 
@@ -524,6 +631,40 @@ where
         self.map.clear()
     }
 
+    /// Returns an iterator over non-expired key-value pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        let now = self.clock.elapsed_seconds_since_creation();
+        self.map.iter().filter_map(move |(k, v)| {
+            if !v.is_expired(now) {
+                Some((k, v.value()))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Returns an iterator over all key-value pairs, including expired ones.
+    pub fn iter_unchecked(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.map.iter().map(|(k, v)| (k, v.value()))
+    }
+
+    /// Returns a mutable iterator over non-expired key-value pairs.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
+        let now = self.clock.elapsed_seconds_since_creation();
+        self.map.iter_mut().filter_map(move |(k, v)| {
+            if !v.is_expired(now) {
+                Some((k, v.value_mut()))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Returns a mutable iterator over all key-value pairs, including expired ones.
+    pub fn iter_mut_unchecked(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
+        self.map.iter_mut().map(|(k, v)| (k, v.value_mut()))
+    }
+
     /// Updates the expiration status of an entry and returns the old status.
     ///
     /// If the entry does not exist, returns Err.
@@ -555,17 +696,18 @@ where
         }
     }
 
-    /// Clears expired entries from the map.
+    /// Clears expired entries from the map and returns them.
     ///
     /// Call this function when using `*_unchecked` inserts, as these do not
     /// automatically clear expired entries.
     #[inline(always)]
-    pub fn drop_expired_entries(&mut self) {
+    pub fn drop_expired_entries(&mut self) -> Vec<(K, V)> {
         let now = self.clock.elapsed_seconds_since_creation();
-        self.drop_expired_entries_inner(now);
+        self.drop_expired_entries_inner(now)
     }
 
-    fn drop_expired_entries_inner(&mut self, now: u64) {
+    fn drop_expired_entries_inner(&mut self, now: u64) -> Vec<(K, V)> {
+        let mut expired_entries = Vec::new();
         // Iterates through `expiries` in order and drops expired ones.
         while let Some((exp, keys)) = self.expiries.pop_first() {
             // It's safe to do early-break here as keys are sorted by expiration.
@@ -575,9 +717,13 @@ where
             }
 
             for key in keys {
-                self.map.remove(&key);
+                if let Some(value) = self.map.remove(&key) {
+                    expired_entries.push((key, value.owned_value()));
+                }
             }
         }
+
+        expired_entries
     }
 
     fn drop_key_from_expiry(&mut self, expiry_key: &u64, map_key: &K) {
